@@ -224,6 +224,8 @@ class reionization_maps:
         self.SPHERIZE = SPHERIZE
         self.COMPUTE_MASSWEIGHTED_IONFRAC = COMPUTE_MASSWEIGHTED_IONFRAC
         self.INCLUDE_PARTIALION = INCLUDE_PARTIALION
+        if self.INCLUDE_PARTIALION: # COMPUTE_MASSWEIGHTED_IONFRAC needs to be True so that partial ion computes on the actual density field at its appropriate redshift
+            self.COMPUTE_MASSWEIGHTED_IONFRAC = True 
         if self.COMPUTE_MASSWEIGHTED_IONFRAC or self.INCLUDE_PARTIALION:
             self.COMPUTE_DENSITY_AT_ALLZ = True
         self.COMPUTE_ZREION = COMPUTE_ZREION
