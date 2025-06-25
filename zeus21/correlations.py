@@ -8,6 +8,9 @@ UT Austin and Harvard CfA - January 2023
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
 
+Edited by Sarah Libanore
+BGU - July 2025
+
 """
 
 import numpy as np
@@ -144,12 +147,16 @@ class Power_Spectra:
         self.RSD_MODE = RSD_MODE #redshift-space distortion mode. 0 = None (mu=0), 1 = Spherical avg (like 21-cmFAST), 2 = LoS only (mu=1). 2 is more observationally relevant, whereas 1 the standard assumption in sims. 0 is just for comparison with real-space #TODO: mode to save at different mu
 
         #first get the linear window functions -- note it already has growth factor in it, so it multiplies Pmatter(z=0)
-        self.kwindow, self.windowalpha_II = self.get_xa_window(Cosmo_Parameters, Correlations, T21_coefficients, pop = 2)
-        self._kwindowX, self.windowxray_II = self.get_Tx_window(Cosmo_Parameters, Correlations, T21_coefficients, pop = 2)
+        # SarahLibanore: add AstroParams to use flag on quadratic order
+        self.kwindow, self.windowalpha_II = self.get_xa_window(Astro_Parameters, Cosmo_Parameters, Correlations, T21_coefficients, pop = 2)
+        # SarahLibanore: add AstroParams to use flag on quadratic order
+        self._kwindowX, self.windowxray_II = self.get_Tx_window(Astro_Parameters, Cosmo_Parameters, Correlations, T21_coefficients, pop = 2)
         
         if Astro_Parameters.USE_POPIII == True:
-            self.kwindow, self.windowalpha_III = self.get_xa_window(Cosmo_Parameters, Correlations, T21_coefficients, pop = 3)
-            self._kwindowX, self.windowxray_III = self.get_Tx_window(Cosmo_Parameters, Correlations, T21_coefficients, pop = 3)
+        # SarahLibanore: add AstroParams to use flag on quadratic order
+            self.kwindow, self.windowalpha_III = self.get_xa_window(Astro_Parameters, Cosmo_Parameters, Correlations, T21_coefficients, pop = 3)
+        # SarahLibanore: add AstroParams to use flag on quadratic order
+            self._kwindowX, self.windowxray_III = self.get_Tx_window(Astro_Parameters, Cosmo_Parameters, Correlations, T21_coefficients, pop = 3)
         else:
             self.windowalpha_III = np.zeros_like(self.windowalpha_II)
             self.windowxray_III = np.zeros_like(self.windowxray_II)
@@ -173,7 +180,8 @@ class Power_Spectra:
 #        print("STEP 1: Computing Nonlinear Power Spectra")
         #finally, get all the nonlinear correlation functions:
 #        print("Computing Pop II-dependent power spectra")
-        self.get_all_corrs_II(User_Parameters, Cosmo_Parameters, Correlations, T21_coefficients)
+        # SarahLibanore: add AstroParams to use flag on quadratic order
+        self.get_all_corrs_II(Astro_Parameters, User_Parameters, Cosmo_Parameters, Correlations, T21_coefficients)
         
         if Astro_Parameters.USE_POPIII == True:
 #            print("Computing Pop IIxIII-dependent cross power spectra")
@@ -452,7 +460,8 @@ class Power_Spectra:
 
 
 
-    def get_xa_window(self, Cosmo_Parameters, Correlations, T21_coefficients, pop = 0): #set pop to 2 or 3, default zero just so python doesn't complain
+    # SarahLibanore: add AstroParams to use flag on quadratic order
+    def get_xa_window(self, Astro_Parameters, Cosmo_Parameters, Correlations, T21_coefficients, pop = 0): #set pop to 2 or 3, default zero just so python doesn't complain
         "Returns the xa window function for all z in zintegral"
         
         zGreaterMatrix100 = np.copy(T21_coefficients.zGreaterMatrix)
@@ -473,6 +482,9 @@ class Power_Spectra:
             print("Must set pop to either 2 or 3!")
 
         _wincoeffsMatrix = coeffRmatrix * gammaRmatrix
+        # SarahLibanore: quadratic order in the lognormal
+        if Astro_Parameters.quadratic_SFRD_lognormal:
+           _wincoeffsMatrix *= 1./(1-2.*T21_coefficients.gamma2_II_index2D*T21_coefficients.sigmaofRtab**2)
 
         if(Cosmo_Parameters.Flag_emulate_21cmfast==False): #do the standard 1D TopHat
             _wincoeffsMatrix /=(4*np.pi * T21_coefficients.Rtabsmoo**2) * (T21_coefficients.Rtabsmoo * T21_coefficients.dlogRR) # so we can just use mcfit for logFFT, 1/(4pir^2 * Delta r)
@@ -494,7 +506,8 @@ class Power_Spectra:
         return _kwinalpha, _win_alpha
 
 
-    def get_Tx_window(self, Cosmo_Parameters,  Correlations, T21_coefficients, pop = 0): #set pop to 2 or 3, default zero just so python doesn't complain
+    # SarahLibanore: add AstroParams to use flag on quadratic order
+    def get_Tx_window(self, Astro_Parameters, Cosmo_Parameters,  Correlations, T21_coefficients, pop = 0): #set pop to 2 or 3, default zero just so python doesn't complain
         "Returns the Tx window function for all z in zintegral"
 
         zGreaterMatrix100 = np.copy(T21_coefficients.zGreaterMatrix)
@@ -513,6 +526,10 @@ class Power_Spectra:
             _coeffTx_units = T21_coefficients.coeff_Gammah_Tx_III
         else:
             print("Must set pop to either 2 or 3!")
+
+        # SarahLibanore: quadratic order in the lognormal
+        if Astro_Parameters.quadratic_SFRD_lognormal:
+           gammaRmatrix *= (1/(1-2.*T21_coefficients.gamma2_II_index2D*T21_coefficients.sigmaofRtab**2))
 
         if(Cosmo_Parameters.Flag_emulate_21cmfast==False): #do the standard 1D TopHat
             _wincoeffs = coeffRmatrix * gammaRmatrix #array in logR space
@@ -538,8 +555,9 @@ class Power_Spectra:
         return _kwinTx, _win_Tx
 
 
+    # SarahLibanore: function modified to include quadratic order
+    def get_all_corrs_II(self, Astro_Parameters, User_Parameters, Cosmo_Parameters, Correlations, T21_coefficients):
 
-    def get_all_corrs_II(self, User_Parameters, Cosmo_Parameters, Correlations, T21_coefficients):
         "Returns the Pop II components of the correlation functions of all observables at each z in zintegral"
         #HAC: I deleted the bubbles and EoR part, to be done later.....
         #_iRnonlinear = np.arange(Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexmaxNL)
@@ -556,7 +574,6 @@ class Power_Spectra:
         _coeffTx_units = T21_coefficients.coeff_Gammah_Tx_II #includes -10^40 erg/s/SFR normalizaiton and erg/K conversion factor
 
         growthRmatrix = cosmology.growth(Cosmo_Parameters,zGreaterMatrix100[:, _iRnonlinear])
-        gammaR1 = T21_coefficients.gamma_II_index2D[:, _iRnonlinear] * growthRmatrix
 
         coeffzp1xa = T21_coefficients.coeff1LyAzp * T21_coefficients.coeff_Ja_xa
         coeffzp1Tx = T21_coefficients.coeff1Xzp
@@ -564,30 +581,96 @@ class Power_Spectra:
         coeffR1xa = T21_coefficients.coeff2LyAzpRR_II[:,_iRnonlinear]
         coeffR1Tx = T21_coefficients.coeff2XzpRR_II[:,_iRnonlinear]
 
-        gammamatrixR1R1 = gammaR1.reshape(len(T21_coefficients.zintegral), 1, len(_iRnonlinear),1) * gammaR1.reshape(len(T21_coefficients.zintegral), len(_iRnonlinear), 1,1)
         coeffmatrixxa = coeffR1xa.reshape(len(T21_coefficients.zintegral), 1, len(_iRnonlinear),1) * coeffR1xa.reshape(len(T21_coefficients.zintegral), len(_iRnonlinear), 1,1)
 
-        gammaTimesCorrdNL = ne.evaluate('gammamatrixR1R1 * corrdNL')#np.einsum('ijkl,ijkl->ijkl', gammamatrixR1R1, corrdNL, optimize = True) #same thing as gammamatrixR1R1 * corrdNL but faster
-        expGammaCorrMinusLinear = ne.evaluate('exp(gammaTimesCorrdNL) - 1 - gammaTimesCorrdNL')
+        # gammaR1 = T21_coefficients.gamma_II_index2D[:, _iRnonlinear] * growthRmatrix
+        # gammamatrixR1R1 = gammaR1.reshape(len(T21_coefficients.zintegral), 1, len(_iRnonlinear),1) * gammaR1.reshape(len(T21_coefficients.zintegral), len(_iRnonlinear), 1,1)
+
+        # gammaTimesCorrdNL = ne.evaluate('gammamatrixR1R1 * corrdNL')#np.einsum('ijkl,ijkl->ijkl', gammamatrixR1R1, corrdNL, optimize = True) #same thing as gammamatrixR1R1 * corrdNL but faster
+
+
+        # SarahLibanore : change to introduce quantities required in the second order correction
+        # --- #
+        growthRmatrix1 = growthRmatrix.reshape(len(T21_coefficients.zintegral), 1, len(_iRnonlinear),1)
+        growthRmatrix2 = growthRmatrix.reshape(len(T21_coefficients.zintegral), len(_iRnonlinear), 1,1)
+        growth_corr = growthRmatrix1 * growthRmatrix2
+
+        gammaR1 = T21_coefficients.gamma_II_index2D[:, _iRnonlinear] 
+        sigmaR1 = T21_coefficients.sigmaofRtab[:, _iRnonlinear] 
+        sR1 = (sigmaR1).reshape(len(T21_coefficients.zintegral), 1, len(_iRnonlinear),1)
+        sR2 = (sigmaR1).reshape(len(T21_coefficients.zintegral), len(_iRnonlinear), 1,1)
+
+        g1 = (gammaR1 * sigmaR1).reshape(len(T21_coefficients.zintegral), 1, len(_iRnonlinear),1)
+        g2 = (gammaR1 * sigmaR1).reshape(len(T21_coefficients.zintegral), len(_iRnonlinear), 1,1)
+        gammamatrixR1R1 = g1 * g2
+
+        corrdNL_gs = ne.evaluate('corrdNL * growth_corr/ (sR1 * sR2)')
+        gammaTimesCorrdNL = ne.evaluate('gammamatrixR1R1 * corrdNL_gs')
+
+        if Astro_Parameters.quadratic_SFRD_lognormal:
+
+            gammaR1NL = T21_coefficients.gamma2_II_index2D[:, _iRnonlinear] 
+            g1NL = (gammaR1NL * sigmaR1**2).reshape(len(T21_coefficients.zintegral), 1, len(_iRnonlinear),1)
+            g2NL = (gammaR1NL * sigmaR1**2).reshape(len(T21_coefficients.zintegral), len(_iRnonlinear), 1,1)
+
+            numerator_NL = ne.evaluate('gammaTimesCorrdNL+ g1 * g1 * (0.5 - g2NL * (1 - corrdNL_gs * corrdNL_gs)) + g2 * g2 * (0.5 - g1NL * (1 - corrdNL_gs * corrdNL_gs))')
+            
+            denominator_NL = ne.evaluate('1. - 2 * g1NL - 2 * g2NL + 4 * g1NL * g2NL * (1 - corrdNL_gs * corrdNL_gs)')
+            
+            norm1 = ne.evaluate('exp(g1 * g1 / (2 - 4 * g1NL)) / sqrt(1 - 2 * g1NL)') 
+            norm2 = ne.evaluate('exp(g2 * g2 / (2 - 4 * g2NL)) / sqrt(1 - 2 * g2NL)') 
+            
+            log_norm = ne.evaluate('log(sqrt(denominator_NL) * norm1 * norm2)')
+            nonlinearcorrelation = ne.evaluate('exp(numerator_NL/denominator_NL - log_norm)')
+
+            # use second order in SFRD lognormal approx
+            expGammaCorrMinusLinear = ne.evaluate('nonlinearcorrelation - 1-gammaTimesCorrdNL/((-1+2.*g1NL)*(-1+2.*g2NL))')
+        else:
+            expGammaCorrMinusLinear = ne.evaluate('exp(gammaTimesCorrdNL) - 1 - gammaTimesCorrdNL')
+
         self._II_deltaxi_xa = np.einsum('ijkl->il', coeffmatrixxa * expGammaCorrMinusLinear, optimize = True)
         self._II_deltaxi_xa *= np.array([coeffzp1xa]).T**2 #brings it to xa units
 
         if (User_Parameters.FLAG_DO_DENS_NL):
             D_coeffR1xa = coeffR1xa.reshape(*coeffR1xa.shape, 1)
-            D_gammaR1 = gammaR1.reshape(*gammaR1.shape , 1)
+            DDgammaR1 = T21_coefficients.gamma_II_index2D[:, _iRnonlinear] 
+            D_gammaR1 = DDgammaR1.reshape(*DDgammaR1.shape , 1)
             D_growthRmatrix = growthRmatrix[:,:1].reshape(*growthRmatrix[:,:1].shape, 1)
             D_corrdNL = corrdNL[:1,0,:,:]
 
-            self._II_deltaxi_dxa = np.sum(D_coeffR1xa * ((np.exp(D_gammaR1 * D_growthRmatrix * D_corrdNL )-1.0 ) - D_gammaR1 * D_growthRmatrix * D_corrdNL), axis = 1)
-            self._II_deltaxi_dxa *= np.array([coeffzp1xa]).T
+            # SarahLibanore
+            if Astro_Parameters.quadratic_SFRD_lognormal:  
+
+                DDsigmaR1 = T21_coefficients.sigmaofRtab[:, _iRnonlinear] 
+                D_sigmaR1 = DDsigmaR1.reshape(*DDsigmaR1.shape , 1)
+                DDgammaR1N = T21_coefficients.gamma2_II_index2D[:, _iRnonlinear] 
+                D_gammaR1N = DDgammaR1N.reshape(*DDgammaR1N.shape , 1)
+  
+                gammaTimesCorrdNL = ne.evaluate('D_gammaR1 * D_growthRmatrix* D_growthRmatrix * D_corrdNL')
+                numerator_NL = ne.evaluate('gammaTimesCorrdNL+ D_gammaR1 * D_gammaR1 * D_sigmaR1* D_sigmaR1 /2 + D_gammaR1N * D_growthRmatrix * D_growthRmatrix* D_growthRmatrix * D_growthRmatrix * (D_corrdNL * D_corrdNL)')
+                
+                denominator_NL = ne.evaluate('1. - 2 * D_gammaR1N*D_sigmaR1*D_sigmaR1')
+                
+                norm1 = ne.evaluate('exp(D_gammaR1 * D_gammaR1 * D_sigmaR1* D_sigmaR1 * D_gammaR1 * D_gammaR1 * D_sigmaR1* D_sigmaR1 / (2 - 4 * D_gammaR1N*D_sigmaR1*D_sigmaR1)) / sqrt(1 - 2 * D_gammaR1N*D_sigmaR1*D_sigmaR1)') 
+                
+                log_norm = ne.evaluate('log(sqrt(denominator_NL) * norm1)')
+                nonlinearcorrelation = ne.evaluate('exp(numerator_NL/denominator_NL - log_norm)')
+
+                self._II_deltaxi_dxa = np.sum(D_coeffR1xa * (
+                    nonlinearcorrelation - 1 - D_gammaR1 * D_growthRmatrix**2 * D_corrdNL/(1-2.*D_gammaR1N*D_sigmaR1**2)
+                     ), axis = 1)
+
+            else:  
+                self._II_deltaxi_dxa = np.sum(D_coeffR1xa * ((np.exp(D_gammaR1 * D_growthRmatrix**2 * D_corrdNL )-1.0 ) - D_gammaR1 * D_growthRmatrix**2 * D_corrdNL), axis = 1)
 
             self._II_deltaxi_d = (np.exp(growthRmatrix[:,:1]**2 * corrdNL[0,0,0,:]) - 1.0) - growthRmatrix[:,:1]**2 * corrdNL[0,0,0,:]
-
+    
+            self._II_deltaxi_dxa *= np.array([coeffzp1xa]).T
 
 
         ### To compute Tx quantities, I'm broadcasting arrays such that the axes are zp1, R1, zp2, R2, and looping over r
-        gammaR2 = np.copy(gammaR1) #already has growth factor in this
-        gammamatrixR1R2 = gammaR1.reshape(*gammaR1.shape, 1, 1) * gammaR2.reshape(1, 1, *gammaR2.shape)
+        # gammaR2 = np.copy(gammaR1) #already has growth factor in this
+        # gammamatrixR1R2 = gammaR1.reshape(*gammaR1.shape, 1, 1) * gammaR2.reshape(1, 1, *gammaR2.shape)
 
         coeffzp1Tx = np.copy(T21_coefficients.coeff1Xzp).reshape(*T21_coefficients.coeff1Xzp.shape, 1, 1, 1)
         coeffzp2Tx = np.copy(T21_coefficients.coeff1Xzp).reshape(1, 1, *T21_coefficients.coeff1Xzp.shape, 1)
@@ -598,6 +681,23 @@ class Power_Spectra:
         coeffsTxALL =  coeffzp1Tx * coeffzp2Tx * coeffmatrixTxTx
         coeffsXaTxALL = coeffzp2Tx * coeffmatrixxaTx
 
+        gammaR2 = np.copy(gammaR1) #already has growth factor in this
+        sigmaR2 = np.copy(sigmaR1) #already has growth factor in this
+
+        growthRmatrix1 = growthRmatrix.reshape(*gammaR1.shape, 1, 1)
+        growthRmatrix2 = growthRmatrix.reshape(1, 1, *gammaR2.shape)
+        growth_corr = growthRmatrix1 * growthRmatrix2
+
+        g1 = (gammaR1 * sigmaR1).reshape(*gammaR1.shape, 1, 1)
+        sR1 = (sigmaR1).reshape(*gammaR1.shape, 1, 1)
+        g2 = (gammaR2 * sigmaR2).reshape(1, 1, *gammaR2.shape)
+        sR2 = (sigmaR2).reshape(1, 1, *gammaR2.shape)
+        if Astro_Parameters.quadratic_SFRD_lognormal:
+            gammaR2NL = np.copy(gammaR1NL)
+            g1NL = (gammaR1NL * sigmaR1**2).reshape(*gammaR1NL.shape, 1, 1)
+            g2NL = (gammaR2NL * sigmaR2**2).reshape(1, 1, *gammaR2NL.shape)
+
+        gammamatrixR1R2 = g1 * g2
 
         self._II_deltaxi_Tx = np.zeros_like(self._II_deltaxi_xa)
         self._II_deltaxi_xaTx = np.zeros_like(self._II_deltaxi_xa)
@@ -605,9 +705,24 @@ class Power_Spectra:
         for ir in range(len(T21_coefficients.Rtabsmoo)):
             corrdNL = corrdNLBIG[:,:,:,:,ir]
             
+            corrdNL_gs = ne.evaluate('corrdNL * growth_corr / (sR1 * sR2)')
+
             #HAC: Computations using ne.evaluate(...) use numexpr, which speeds up computations of massive numpy arrays
-            gammaTimesCorrdNL = ne.evaluate('gammamatrixR1R2 * corrdNL')
-            expGammaCorrMinusLinear = ne.evaluate('exp(gammaTimesCorrdNL) - 1 - gammaTimesCorrdNL')
+            gammaTimesCorrdNL = ne.evaluate('gammamatrixR1R2 * corrdNL_gs')
+            if Astro_Parameters.quadratic_SFRD_lognormal:
+
+                numerator_NL = ne.evaluate('gammaTimesCorrdNL + g1 * g1 * (0.5 - g2NL * (1 - corrdNL_gs * corrdNL_gs)) + g2 * g2 * (0.5 - g1NL * (1 - corrdNL_gs * corrdNL_gs))')
+                denominator_NL = ne.evaluate('1. - 2 * g1NL - 2 * g2NL + 4 * g1NL * g2NL * (1 - corrdNL_gs * corrdNL_gs)')
+                norm1 = ne.evaluate('exp(g1 * g1 / (2 - 4 * g1NL)) / sqrt(1 - 2 * g1NL)') 
+                norm2 = ne.evaluate('exp(g2 * g2 / (2 - 4 * g2NL)) / sqrt(1 - 2 * g2NL)') 
+                
+                log_norm = ne.evaluate('log(sqrt(denominator_NL) * norm1 * norm2)')
+                nonlinearcorrelation = ne.evaluate('exp(numerator_NL/denominator_NL - log_norm)')
+
+                # use second order in SFRD lognormal approx
+                expGammaCorrMinusLinear = ne.evaluate('nonlinearcorrelation - 1-gammaTimesCorrdNL/((-1+2.*g1NL)*(-1+2.*g2NL))')
+            else:
+                expGammaCorrMinusLinear = ne.evaluate('exp(gammaTimesCorrdNL) - 1 - gammaTimesCorrdNL')
 
             deltaXiTxAddend = ne.evaluate('coeffsTxALL * expGammaCorrMinusLinear')
             deltaXiTxAddend = np.einsum('ijkl->ik', deltaXiTxAddend, optimize = True) #equivalent to np.sum(deltaXiTxAddend, axis = (1, 3))
@@ -630,11 +745,33 @@ class Power_Spectra:
         if (User_Parameters.FLAG_DO_DENS_NL):
             D_coeffR2Tx = coeffR2Tx.reshape(1, *coeffR2Tx.shape, 1)
             D_coeffzp2Tx = coeffzp2Tx.flatten().reshape(1, *coeffzp2Tx.flatten().shape, 1)
-            D_gammaR2 = gammaR2.reshape(1, *gammaR2.shape , 1)
+            DDgammaR2 = np.copy(DDgammaR1)
+            D_gammaR2 = DDgammaR2.reshape(1, *DDgammaR2.shape , 1)
             D_growthRmatrix = growthRmatrix[:,0].reshape(*growthRmatrix[:,0].shape, 1, 1, 1)
             D_corrdNL = corrdNLBIG.squeeze()[0].reshape(1, 1, *corrdNLBIG.squeeze()[0].shape)
+        
+            if Astro_Parameters.quadratic_SFRD_lognormal:                
 
-            self._II_deltaxi_dTx =  D_coeffzp2Tx * np.sum(D_coeffR2Tx * ((np.exp(D_gammaR2 * D_growthRmatrix * D_corrdNL)-1.0) - D_gammaR2 * D_growthRmatrix * D_corrdNL), axis = 2)
+                DDsigmaR2 = np.copy(DDsigmaR1)
+                D_sigmaR2 = DDsigmaR2.reshape(1, *DDsigmaR2.shape , 1)
+                DDgammaR2N = np.copy(DDgammaR1N)
+                D_gammaR2N = DDgammaR2N.reshape(1, *DDgammaR2N.shape , 1)
+  
+                gammaTimesCorrdNL = ne.evaluate('D_gammaR2 * D_growthRmatrix* D_growthRmatrix * D_corrdNL')
+                numerator_NL = ne.evaluate('gammaTimesCorrdNL+ D_gammaR2 * D_gammaR2 * D_sigmaR2* D_sigmaR2 /2 + D_gammaR2N * D_growthRmatrix* D_growthRmatrix* D_growthRmatrix* D_growthRmatrix * (D_corrdNL * D_corrdNL)')
+                
+                denominator_NL = ne.evaluate('1. - 2 * D_gammaR2N*D_sigmaR2*D_sigmaR2')
+                
+                norm2 = ne.evaluate('exp(D_gammaR2 * D_gammaR2 * D_sigmaR2* D_sigmaR2 * D_gammaR2 * D_gammaR2 * D_sigmaR2* D_sigmaR2 / (2 - 4 * D_gammaR2N*D_sigmaR2*D_sigmaR2)) / sqrt(1 - 2 * D_gammaR2N*D_sigmaR2*D_sigmaR2)') 
+                
+                log_norm = ne.evaluate('log(sqrt(denominator_NL) * norm2)')
+                nonlinearcorrelation = ne.evaluate('exp(numerator_NL/denominator_NL - log_norm)')
+
+                self._II_deltaxi_dTx = D_coeffzp2Tx * np.sum(D_coeffR2Tx * (nonlinearcorrelation -1 -D_gammaR2*D_growthRmatrix**2 *D_corrdNL/(1-2.*D_gammaR2N*D_sigmaR2**2)), axis = 2)
+
+            else:
+                self._II_deltaxi_dTx =  D_coeffzp2Tx * np.sum(D_coeffR2Tx * ((np.exp(D_gammaR2 * D_growthRmatrix**2 * D_corrdNL)-1.0) - D_gammaR2 * D_growthRmatrix**2 * D_corrdNL), axis = 2)
+
 
             self._II_deltaxi_dTx = np.moveaxis(self._II_deltaxi_dTx, 1, 0)
             self._II_deltaxi_dTx = np.cumsum(self._II_deltaxi_dTx[::-1], axis = 0)[::-1]

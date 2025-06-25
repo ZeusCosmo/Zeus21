@@ -5,8 +5,12 @@ Takes inputs and stores them in useful classes
 Author: Julian B. Muñoz
 UT Austin and Harvard CfA - January 2023
 
-Edited by Hector Afonso G. Cruz
+Edited by Hector Afonso G. Cruz 
 JHU - July 2024
+
+Edited by Sarah Libanore
+BGU - July 2025
+
 """
 
 from . import constants
@@ -266,6 +270,7 @@ class Astro_Parameters:
                     A_vcb = 1.0,
                     beta_vcb = 1.8,
                  
+                    quadratic_SFRD_lognormal = False # Sarah Libanore, use second order in lognormal
 
                 ):
         
@@ -395,6 +400,19 @@ class Astro_Parameters:
         self._kappaUV = 1.15e-28 #SFR/LUV, value from Madau+Dickinson14, fully degenerate with epsilon
         self._kappaUV_III = self._kappaUV #SFR/LUV for PopIII. Assume X more efficient than PopII
 
+        # SarahLibanore - to use second order in SFR lognormal
+        if not quadratic_SFRD_lognormal:
+            self.quadratic_SFRD_lognormal = quadratic_SFRD_lognormal
+        else:
+            if not USE_POPIII and not Cosmo_Parameters.Flag_emulate_21cmfast:
+                self.quadratic_SFRD_lognormal = quadratic_SFRD_lognormal
+            else:
+                if USE_POPIII:
+                    print('Quadratic SFRD not yet implemented when USE_POPIII = True; the code will use quadratic_SFRD_lognormal = False')
+                if Cosmo_Parameters.Flag_emulate_21cmfast:
+                    print('Quadratic SFRD not yet implemented when Flag_emulate_21cmfast = True; the code will use quadratic_SFRD_lognormal = False')
+                self.quadratic_SFRD_lognormal = False
+                
 
 
     def SED_XRAY(self, En, pop = 0): #pop set to zero as default, but it must be set to either 2 or 3

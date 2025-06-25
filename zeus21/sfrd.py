@@ -7,6 +7,10 @@ UT Austin and Harvard CfA - January 2023
 
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
+
+Edited by Sarah Libanore
+BGU - July 2025
+
 """
 
 from . import cosmology
@@ -84,7 +88,11 @@ class get_T21_coefficients:
         self.gamma_index2D = np.zeros_like(self.SFRDbar2D) #index of SFR ~ exp(\gamma delta)
         self.gamma_II_index2D = np.zeros_like(self.SFRDbar2D) #index of SFR ~ exp(\gamma delta)
         self.gamma_III_index2D = np.zeros_like(self.SFRDbar2D) #index of SFR ~ exp(\gamma delta)
-        
+
+        # SarahLibanore: gamma non linear for quadratic order
+        self.gamma2_II_index2D = np.zeros_like(self.SFRDbar2D) #index of SFR ~ exp(\gamma delta + \gamma_2 delta^2)
+        self.gamma2_III_index2D = np.zeros_like(self.SFRDbar2D) #index of SFR ~ exp(\gamma \delta + \gamma_2 \delta^2)
+
         self.niondot_avg = np.zeros_like(self.zintegral) #\dot nion at each z (int d(SFRD)/dM *fesc(M) dM)/rhobaryon
         self.gamma_Niondot_index2D = np.zeros_like(self.SFRDbar2D) #index of SFR ~ exp(\gamma delta)
 
@@ -112,7 +120,7 @@ class get_T21_coefficients:
 
         #and EPS factors
         Nsigmad = 1.0 #how many sigmas we explore
-        Nds = 2 #how many deltas
+        Nds = 3 #how many deltas - SarahLibanore: changed to compute the non linear gamma
         deltatab_norm = np.linspace(-Nsigmad,Nsigmad,Nds)
 
         #initialize Xrays
@@ -217,6 +225,10 @@ class get_T21_coefficients:
             EPS_HMF_corr = (nu/nu0) * (sigmaM/modSigma)**2.0 * np.exp(-Cosmo_Parameters.a_corr_EPS * (nu**2-nu0**2)/2.0 ) * (1.0 + deltaArray)
             integrand_II = EPS_HMF_corr * SFRD_II_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, zGreaterArray, zGreaterArray)
             
+        # SarahLibanore: compute quantities in Lagrangian space to get gamma in Lagrangian space
+            EPS_HMF_corr_Lag = (nu/nu0) * (sigmaM/modSigma)**2.0 * np.exp(-Cosmo_Parameters.a_corr_EPS * (nu**2-nu0**2)/2.0 )
+            integrand_II_Lag = EPS_HMF_corr_Lag * SFRD_II_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, zGreaterArray, zGreaterArray)
+
         elif(Cosmo_Parameters.Flag_emulate_21cmfast==True): #as 21cmFAST, use PS HMF, integrate and normalize at the end
             PS_HMF_corr = cosmology.PS_HMF_unnorm(Cosmo_Parameters, HMF_interpolator.Mhtab.reshape(len(HMF_interpolator.Mhtab),1),nu,dlogSdMcurr) * (1.0 + deltaArray)
             integrand_II = PS_HMF_corr * SFR_II(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, zGreaterArray, zGreaterArray) * mArray
@@ -227,6 +239,12 @@ class get_T21_coefficients:
         ########
         # Compute SFRD quantities
         SFRD_II_dR = np.trapz(integrand_II, HMF_interpolator.logtabMh, axis = 2)
+        # SarahLibanore: to compute reionization
+        niondot_II_dR = np.trapz(integrand_II*fesctab_II[None, None, :, None], HMF_interpolator.logtabMh, axis = 2)
+
+        # SarahLibanore: compute quantities in Lagrangian space to get gamma in Lagrangian space
+        SFRD_II_dR_Lag = np.trapz(integrand_II_Lag, HMF_interpolator.logtabMh, axis = 2)
+        niondot_II_dR_Lag = np.trapz(integrand_II_Lag*fesctab_II[None, None, :, None], HMF_interpolator.logtabMh, axis = 2)
 
         ###
         if Astro_Parameters.USE_POPIII == True:
@@ -236,20 +254,64 @@ class get_T21_coefficients:
                 integrand_III = PS_HMF_corr * SFR_III(Astro_Parameters, Cosmo_Parameters, ClassCosmo, HMF_interpolator, mArray, J21LW_interp, zGreaterArray, zGreaterArray, ClassCosmo.pars['v_avg']) * mArray
 
             SFRD_III_dR = np.trapz(integrand_III, HMF_interpolator.logtabMh, axis = 2)
+            # SarahLibanore: reionization
+            niondot_III_dR = np.trapz(integrand_III*fesctab_III[None, None, :, None], HMF_interpolator.logtabMh, axis = 2)
+
         else:
             SFRD_III_dR = np.zeros_like(SFRD_II_dR)
             
-            
         #compute gammas
-        self.gamma_II_index2D = np.log(SFRD_II_dR[:,:,-1]/SFRD_II_dR[:,:,0]) / (deltaArray[:,:,0,-1] - deltaArray[:,:,0,0])
+        # SarahLibanore: extend gamma computation to reionization, Lagrangian space and to second order
+        midpoint = deltaArray.shape[-1]//2 #midpoint of deltaArray at delta = 0
+
+        self.gamma_II_index2D = np.log(SFRD_II_dR[:,:,midpoint+1]/SFRD_II_dR[:,:,midpoint-1]) / (deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint-1])
         self.gamma_II_index2D[np.isnan(self.gamma_II_index2D)] = 0.0
+
+        self.gamma_niondot_II_index2D = np.log(niondot_II_dR[:,:,midpoint+1]/niondot_II_dR[:,:,midpoint-1]) / (deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint-1])
+        self.gamma_niondot_II_index2D[np.isnan(self.gamma_niondot_II_index2D)] = 0.0
+
+        # Lagrangian
+        self.gamma_II_index2D_Lag = np.log(SFRD_II_dR_Lag[:,:,midpoint+1]/SFRD_II_dR_Lag[:,:,midpoint-1]) / (deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint-1])
+        self.gamma_II_index2D_Lag[np.isnan(self.gamma_II_index2D_Lag)] = 0.0
+
+        self.gamma_niondot_II_index2D_Lag = np.log(niondot_II_dR_Lag[:,:,midpoint+1]/niondot_II_dR_Lag[:,:,midpoint-1]) / (deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint-1])
+        self.gamma_niondot_II_index2D_Lag[np.isnan(self.gamma_niondot_II_index2D_Lag)] = 0.0
+
+        #compute second-order derivative gammas by computing two first-order derivatives #TODO: functionalize derivatives
+        der1_II =  np.log(SFRD_II_dR[:,:,midpoint]/SFRD_II_dR[:,:,midpoint-1])/(deltaArray[:,:,0,midpoint] - deltaArray[:,:,0,midpoint-1]) #ln(y2/y1)/(x2-x1)
+        der2_II =  np.log(SFRD_II_dR[:,:,midpoint+1]/SFRD_II_dR[:,:,midpoint])/(deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint]) #ln(y3/y2)/(x3-x2)
+        self.gamma2_II_index2D = (der2_II - der1_II)/(deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint-1]) #second derivative: (der2-der1)/((x3-x1)/2)
+        self.gamma2_II_index2D[np.isnan(self.gamma2_II_index2D)] = 0.0
+        
+        der1_niondot_II =  np.log(niondot_II_dR[:,:,midpoint]/niondot_II_dR[:,:,midpoint-1])/(deltaArray[:,:,0,midpoint] - deltaArray[:,:,0,midpoint-1]) #ln(y2/y1)/(x2-x1)
+        der2_niondot_II =  np.log(niondot_II_dR[:,:,midpoint+1]/niondot_II_dR[:,:,midpoint])/(deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint]) #ln(y3/y2)/(x3-x2)
+        self.gamma2_niondot_II_index2D = (der2_niondot_II - der1_niondot_II)/(deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint-1]) #second derivative: (der2-der1)/((x3-x1)/2)
+        self.gamma2_niondot_II_index2D[np.isnan(self.gamma2_niondot_II_index2D)] = 0.0
+
+        # Lagrangian 
+        der1_II_Lag =  np.log(SFRD_II_dR_Lag[:,:,midpoint]/SFRD_II_dR_Lag[:,:,midpoint-1])/(deltaArray[:,:,0,midpoint] - deltaArray[:,:,0,midpoint-1]) #ln(y2/y1)/(x2-x1)
+        der2_II_Lag =  np.log(SFRD_II_dR_Lag[:,:,midpoint+1]/SFRD_II_dR_Lag[:,:,midpoint])/(deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint]) #ln(y3/y2)/(x3-x2)
+        self.gamma2_II_index2D_Lag = (der2_II_Lag - der1_II_Lag)/(deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint-1]) #second derivative: (der2-der1)/((x3-x1)/2)
+        self.gamma2_II_index2D_Lag[np.isnan(self.gamma2_II_index2D_Lag)] = 0.0
+        
+        der1_niondot_II_Lag =  np.log(niondot_II_dR_Lag[:,:,midpoint]/niondot_II_dR_Lag[:,:,midpoint-1])/(deltaArray[:,:,0,midpoint] - deltaArray[:,:,0,midpoint-1]) #ln(y2/y1)/(x2-x1)
+        der2_niondot_II_Lag =  np.log(niondot_II_dR_Lag[:,:,midpoint+1]/niondot_II_dR_Lag[:,:,midpoint])/(deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint]) #ln(y3/y2)/(x3-x2)
+        self.gamma2_niondot_II_index2D_Lag = (der2_niondot_II_Lag - der1_niondot_II_Lag)/(deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint-1]) #second derivative: (der2-der1)/((x3-x1)/2)
+        self.gamma2_niondot_II_index2D_Lag[np.isnan(self.gamma2_niondot_II_index2D_Lag)] = 0.0
 
         if Astro_Parameters.USE_POPIII == True:
             self.gamma_III_index2D = np.log(SFRD_III_dR[:,:,-1]/SFRD_III_dR[:,:,0]) / (deltaArray[:,:,0,-1] - deltaArray[:,:,0,0])
             self.gamma_III_index2D[np.isnan(self.gamma_III_index2D)] = 0.0
+
+            # SarahLibanore: reionization
+            self.gamma_niondot_III_index2D = np.log(niondot_III_dR[:,:,midpoint+1]/niondot_III_dR[:,:,midpoint-1]) / (deltaArray[:,:,0,midpoint+1] - deltaArray[:,:,0,midpoint-1])
+            self.gamma_niondot_III_index2D[np.isnan(self.gamma_niondot_III_index2D)] = 0.0
+
         else:
             self.gamma_III_index2D = np.zeros_like(self.gamma_II_index2D)
-           
+            # SarahLibanore: reionization
+            self.gamma_niondot_III_index2D = np.zeros_like(self.gamma_niondot_II_index2D)
+
         #####################################################################################################
         ### STEP 3: Computing lambdas in velocity anisotropies
         ### Because we found the SFRD vcb dependence to be delta independent, we compute quantities below for a variety of R's and delta_R = 0
@@ -476,11 +538,19 @@ class get_T21_coefficients:
         #correct for nonlinearities in <(1+d)SFRD>, only if doing nonlinear stuff. We're assuming that (1+d)SFRD ~ exp(gamma*d), so the "Lagrangian" gamma was gamma-1. We're using the fact that for a lognormal variable X = log(Z), with  Z=\gamma \delta, <X> = exp(\gamma^2 \sigma^2/2).
 
         if(User_Parameters.C2_RENORMALIZATION_FLAG==True):
-            _corrfactorEulerian_II = 1.0 + (self.gamma_II_index2D-1.0)*self.sigmaofRtab**2
+
+            # SarahLibanore: compute using Lagrangian gammas and include quadratic case
+            if Astro_Parameters.quadratic_SFRD_lognormal:
+                _corrfactorEulerian_II = (1+(self.gamma_II_index2D_Lag-2*self.gamma2_II_index2D_Lag)*self.sigmaofRtab**2)/(1-2*self.gamma2_II_index2D_Lag*self.sigmaofRtab**2)
+
+            else:
+                _corrfactorEulerian_II = 1.0 + self.gamma_II_index2D_Lag*self.sigmaofRtab**2
+
             _corrfactorEulerian_II=_corrfactorEulerian_II.T
             _corrfactorEulerian_II[0:Cosmo_Parameters.indexminNL] = _corrfactorEulerian_II[Cosmo_Parameters.indexminNL] #for R<R_NL we just fix it to the RNL value, as we do for the correlation function. We could cut the sum but this keeps those scales albeit approximately
             self.coeff2LyAzpRR_II*= _corrfactorEulerian_II.T
             self.coeff2XzpRR_II*= _corrfactorEulerian_II.T
+
             if Astro_Parameters.USE_POPIII == True:
                 _corrfactorEulerian_III = 1.0 + (self.gamma_III_index2D-1.0)*self.sigmaofRtab**2
                 _corrfactorEulerian_III=_corrfactorEulerian_III.T
