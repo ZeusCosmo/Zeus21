@@ -219,7 +219,7 @@ class get_T21_coefficients:
             
         elif(Cosmo_Parameters.Flag_emulate_21cmfast==True): #as 21cmFAST, use PS HMF, integrate and normalize at the end
             PS_HMF_corr = cosmology.PS_HMF_unnorm(Cosmo_Parameters, HMF_interpolator.Mhtab.reshape(len(HMF_interpolator.Mhtab),1),nu,dlogSdMcurr) * (1.0 + deltaArray)
-            integrand_II = PS_HMF_corr * SFR_II(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, zGreaterArray, zGreaterArray) * mArray
+            integrand_II = PS_HMF_corr * SFR_II(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, zGreaterArray, zGreaterArray) * mArray * fduty_II(Astro_Parameters, mArray, zGreaterArray)
             
         else:
             print("ERROR: Need to set FLAG_EMULATE_21CMFAST at True or False in the self.gamma_index2D calculation.")
@@ -737,7 +737,7 @@ def SFRD_II_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mass
     
     HMF_curr = np.exp(HMF_interpolator.logHMFint((np.log(Mh), z)))
     SFRtab_currII = SFR_II(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, Mh, z, z2)
-    integrand_II = HMF_curr * SFRtab_currII * Mh
+    integrand_II = HMF_curr * SFRtab_currII * Mh * fduty_II(Astro_Parameters, Mh, z)
     return integrand_II
 
 
@@ -749,13 +749,13 @@ def SFRD_III_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mas
     return integrand_III
 
 
-def SFR_II(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, massVector, z, z2):
-    "SFR in Msun/yr at redshift z. Evaluated at the halo masses Mh [Msun] of the HMF_interpolator, given Astro_Parameters"
+
+def fduty_II(Astro_Parameters, massVector, z):
+    "Duty cycle of PopII forming galaxies, in units of 1, at redshift z. Evaluated at the halo masses Mh [Msun] of the HMF_interpolator, given Astro_Parameters"
     Mh = massVector
-    
-    #The FIXED/SHARP routine below only applies to Pop II, not to Pop III
-    if Astro_Parameters.USE_POPIII == False:
-        if(Astro_Parameters.FLAG_MTURN_FIXED == False):
+
+    if Astro_Parameters.USE_POPIII == False: #The FIXED/SHARP routine below only applies to Pop II, not to Pop III
+        if(Astro_Parameters.FLAG_MTURN_FIXED == False): 
             fduty = np.exp(-Matom(z)/Mh)
         elif(Astro_Parameters.FLAG_MTURN_SHARP == False): #whether to do regular exponential turn off or a sharp one at Mturn
             fduty = np.exp(-Astro_Parameters.Mturn_fixed/Mh)
@@ -764,10 +764,16 @@ def SFR_II(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, massVector, z, 
     elif Astro_Parameters.USE_POPIII == True:
         fduty = np.exp(-Matom(z)/Mh)
 
+    return fduty
+
+def SFR_II(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, massVector, z, z2):
+    "SFR in Msun/yr at redshift z. Evaluated at the halo masses Mh [Msun] of the HMF_interpolator, given Astro_Parameters"
+    Mh = massVector
+    
     fstarM = fstarofz(Astro_Parameters, Cosmo_Parameters, z, Mh)
     fstarM = np.fmin(fstarM, Astro_Parameters.fstarmax)
     
-    return dMh_dt(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, Mh, z)  * fstarM * fduty
+    return dMh_dt(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, Mh, z)  * fstarM 
 
 
 def SFR_III(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, massVector, J21LW_interp, z, z2, vCB):
