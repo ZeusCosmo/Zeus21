@@ -5,7 +5,7 @@ from .correlations import *
 from .sfrd import get_T21_coefficients
 from .xrays import Xray_class
 from .UVLFs import UVLF_binned
-from .maps import CoevalMaps
+from .maps import CoevalMaps, reionization_maps
 from .reionization import BMF
 
 import warnings
