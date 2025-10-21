@@ -4,7 +4,7 @@ Models reionization using an analogy of a halo mass function to ionized bubbles
 See Sklansky et al. (in prep)
 
 Authors: Yonatan Sklansky, Emilie Thelie
-UT Austin - January 2025
+UT Austin - October 2025
 
 """
 

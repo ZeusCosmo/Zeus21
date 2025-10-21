@@ -3,7 +3,7 @@
 Make maps! For fun and science
 
 Authors: Julian B. Muñoz, Yonatan Sklansky, Emilie Thelie
-UT Austin - February 2025
+UT Austin - October 2025
 
 """
 
@@ -15,7 +15,7 @@ import numpy as np
 import powerbox as pbox
 from scipy.interpolate import interp1d
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
-from pyfftw import empty_aligned as empty
+#from pyfftw import empty_aligned as empty
 from tqdm import trange
 import time
 
@@ -141,24 +141,21 @@ class reionization_maps:
     r_precision: float
         Allows to change the steps of the radii for faster computation. Default (and max) is 1, lower values make the computation faster at the cost of accuracy.
     barrier: function
-        Input density barrier to be used as the threshold for map generation. Takes z index //\\Change//\\ (relative to CoeffStructure.zintegral) as input and returns np.array of shape. Default is None.
+        Input density barrier to be used as the threshold for map generation. Takes z value as input and returns np.array of shape. Default is None.
     PRINT_TIMER: bool
         Whether to print the time elapsed along the process. Default is True.
     LOGNORMAL_DENSITY: bool
-        Whether to use lognormal (True) or Gaussian (False) density fields. Default is False.of radii. Default is False.
+        Whether to use lognormal (True) or Gaussian (False) density fields. Default is False.
     COMPUTE_DENSITY_AT_ALLZ: bool
-        Whether to output the density field at all redshifts. If False, only the density at the lower input redshift is computed. If True, the computation time and memory usage dramatically increase. Default is False.
+        Whether to output the density field at all redshifts. If False, only the density at the lower input redshift is computed. If True, the computation time and memory usage dramatically increases. Default is False.
     SPHERIZE: bool
         Whether to flag spheres around ionized cells (True) instead of only central pixel flagging (False). Default is False. Central pixel flagging is generally more consistent with the bubble mass function than spherizing. Default is False.
-    COMPUTE_MASSWEIGHTED_IONFRAC: bool
-        Whether to compute the mass weighted ionized fraction. If True, COMPUTE_DENSITY_AT_ALLZ will be forced to True, thus increasing dramatically computation time. Default is False.
+    COMPUTE_MASSWEIGHTED: bool
+        Whether to compute the mass weighted ionized field and fraction. If True, COMPUTE_DENSITY_AT_ALLZ will be forced to True, thus increasing computation time dramatically. Default is False.
     lowres_massweighting: int
-        Compute the mass-weighted ionized fraction more efficiently by using lower resolution density and ionized fields. Has to be >=1 and an integer. Default is 1.
-    INCLUDE_PARTIALION: bool
-        Whether to compute the ionized field while accounting for the ionization on the subpixels scale, so called partial ionization. Default is False.
-        This computation requires to know the density at all redshift. So if True, COMPUTE_DENSITY_AT_ALLZ will be forced to True, thus increasing dramatically computation time.
-    COMPUTE_ZREION: bool
-        Whether to compute the reionization redshift and time fields. Default is False.
+        Compute the mass-weighted ionized field and fraction more efficiently by using lower resolution density and ionized fields. Has to be >=1 and an integer. Default is 1.
+    COMPUTE_PARTIAL_IONIZATIONS: bool
+        Whether to compute the subpixel ionizations in the field and the ionized fractions.
 
     Attributes
     ----------
@@ -176,73 +173,67 @@ class reionization_maps:
         Overdensity field at all the redshifts asked by the user. First dimension correponds to redshifts. Only computed if COMPUTE_DENSITY_AT_ALLZ is True.
     ion_field_allz: 4D np.array
         Ionized fraction field at all the redshifts asked by the user. First dimension correponds to redshifts.
-    ion_field_partial_allz: 4D np.array
-        Ionized fraction field (including partical ionization of pixels) at all the redshifts asked by the user. First dimension correponds to redshifts.
-        Only computed if INCLUDE_PARTIALION is True.
     ion_frac: 1D np.array
         Volume weighted ionized fraction at all the redshifts asked by the user.
-    ion_frac_subpixel: 1D np.array
-        Volume weighted ionized fraction (including subpixel ionization) at all the redshifts asked by the user.
-        Only computed if COMPUTE_MASSWEIGHTED_IONFRAC and INCLUDE_PARTIALION are True.
     ion_frac_massweighted: 1D np.array
-        Mass weighted ionized fraction at all the redshifts asked by the user. Only computed if COMPUTE_MASSWEIGHTED_IONFRAC is True.
-    ion_frac_massweighted_subpixel: 1D np.array
-        Mass weighted ionized fraction (including subpixel ionization) at all the redshifts asked by the user. 
-        Only computed if COMPUTE_MASSWEIGHTED_IONFRAC and INCLUDE_PARTIALION are True.
-    zreion: 3D np.array
-        Reionization redshift field.
-    treion: 3D np.array
-        Reionization time field.    
+        Mass weighted ionized fraction at all the redshifts asked by the user. Only computed if COMPUTE_MASSWEIGHTED is True.
     """
     
     def __init__(self, CosmoParams, ClassyCosmo, CorrFClass, CoeffStructure, BMF, input_z, 
-                 input_boxlength=300., ncells=300, seed=1234, r_precision=1., barrier=None, 
-                 PRINT_TIMER=True, ENFORCE_BMF_SCALE=True, 
+                 input_boxlength=300., ncells=300, seed=1234, r_precision=1., Rs=None, barrier=None, 
+                 PRINT_TIMER=True, 
                  LOGNORMAL_DENSITY=False, COMPUTE_DENSITY_AT_ALLZ=False, SPHERIZE=False, 
-                 COMPUTE_MASSWEIGHTED_IONFRAC=False, lowres_massweighting=1,
-                 INCLUDE_PARTIALION = False,
-                 COMPUTE_ZREION=False):
+                 COMPUTE_MASSWEIGHTED=False, lowres_massweighting=1, COMPUTE_PARTIAL_IONIZATIONS=False,
+                 COMPUTE_PARTIAL_AND_MASSWEIGHTED=False, COMPUTE_ZREION=False
+                ):
         #Measure time elapsed from start
         self._start_time = time.time()
         
         ### boxes parameters
         self.input_z = input_z
-        self.ENFORCE_BMF_SCALE = ENFORCE_BMF_SCALE
         self.ncells = ncells
         self.boxlength = input_boxlength
         self.dx = self.boxlength/self.ncells
-        if self.ENFORCE_BMF_SCALE:
-            self.dx = CoeffStructure.Rtabsmoo[0] * (4*np.pi/3)**(1/3) #change to constant
-            self.boxlength = self.dx * self.ncells
-            print(f"WARNING: with ENFORCE_BMF_SCALE=True, boxlength is changed to match BMF scale. Current value: {self.boxlength:.2f} cMpc.")
+
+        # radii
+        if Rs is None:
+            default_len = len(CoeffStructure.Rtabsmoo)
+            self.r_precision = r_precision
+            self.r = np.logspace(np.log10(self.dx * (3/4/np.pi)**(1/3)), np.log10(self.boxlength), int(default_len*self.r_precision))
+            self._r_idx = np.arange(int(default_len*self.r_precision))
+        else:
+            self.r_precision = r_precision
+            self.r = Rs
+            if self.r_precision > 1:
+                raise ValueError('r_precision cannot be greater than 1 if you input your own radii.')
+            self._r_idx = np.floor(np.arange(len(self.r), step=self.r_precision)).astype(int)
+            smallest_r = self.dx * (3/4/np.pi)**(1/3)
+            if self.r[0] < smallest_r:
+                print(f'WARNING: Your input radii are too small for the pixel size. The code will still run now.\nIn the future, for best performance and physical accuracy on this boxlength and ncells, the smallest smoothing radius should be no less than R=L/N * (4pi/3)^(-1/3), or approximately {smallest_r:.2f} cMpc.')
+        
         self.seed = seed
 
         ### FLAGS
         self.PRINT_TIMER = PRINT_TIMER
         self.LOGNORMAL_DENSITY = LOGNORMAL_DENSITY
         self.COMPUTE_DENSITY_AT_ALLZ = COMPUTE_DENSITY_AT_ALLZ
+        self._has_density = COMPUTE_DENSITY_AT_ALLZ
         self.SPHERIZE = SPHERIZE
-        self.COMPUTE_MASSWEIGHTED_IONFRAC = COMPUTE_MASSWEIGHTED_IONFRAC
-        self.INCLUDE_PARTIALION = INCLUDE_PARTIALION
-        if self.INCLUDE_PARTIALION: # COMPUTE_MASSWEIGHTED_IONFRAC needs to be True so that partial ion computes on the actual density field at its appropriate redshift
-            self.COMPUTE_MASSWEIGHTED_IONFRAC = True 
-        if self.COMPUTE_MASSWEIGHTED_IONFRAC or self.INCLUDE_PARTIALION:
+        self.COMPUTE_MASSWEIGHTED = COMPUTE_MASSWEIGHTED
+        self.COMPUTE_PARTIAL_IONIZATIONS = COMPUTE_PARTIAL_IONIZATIONS
+        self.COMPUTE_PARTIAL_AND_MASSWEIGHTED = COMPUTE_PARTIAL_AND_MASSWEIGHTED
+        if self.COMPUTE_MASSWEIGHTED or self.COMPUTE_PARTIAL_IONIZATIONS or self.COMPUTE_PARTIAL_AND_MASSWEIGHTED:
             self.COMPUTE_DENSITY_AT_ALLZ = True
-        self.COMPUTE_ZREION = COMPUTE_ZREION
 
         ### selecting redshifts and radii from available redshifts
         # redshifts
-        self._z_idx = z21_utilities.find_nearest_idx(CoeffStructure.zintegral, self.input_z)
-        self.z = CoeffStructure.zintegral[self._z_idx]
-        # radii
-        self.r_precision = r_precision
-        self._r_idx = np.linspace(0, len(CoeffStructure.Rtabsmoo)-1, int(len(CoeffStructure.Rtabsmoo)*self.r_precision), dtype=int)
-        self.r = CoeffStructure.Rtabsmoo[self._r_idx]
+        self._z_idx = np.arange(len(np.atleast_1d(input_z))) #z21_utilities.find_nearest_idx(CoeffStructure.zintegral, self.input_z)
+        self.z = np.atleast_1d(input_z) #CoeffStructure.zintegral[self._z_idx]
 
         ### generating the density field at the closest redshift to the lower one inputed
         self.z_of_density = self.z[0]
         self.density = self.generate_density(ClassyCosmo, CorrFClass)
-        self.density_allz = np.empty((len(self.z), self.ncells, self.ncells, self.ncells))
+        self.density_allz = np.empty((len(self.z), self.ncells, self.ncells, self.ncells), dtype=np.float32)
         if self.COMPUTE_DENSITY_AT_ALLZ:
             self.generate_density_allz(CosmoParams)
 
@@ -253,26 +244,28 @@ class reionization_maps:
         ### generating the ionized field, and computing the ionized fraction
         self.barrier = barrier
         if self.barrier is None:
-            self.barrier = BMF.barrier
-        self.ion_field_allz = self.generate_xHII(CosmoParams, CoeffStructure, BMF)
-        self.ion_frac = self.compute_volumeweigthed_xHII(self.ion_field_allz)
-        if self.INCLUDE_PARTIALION:
-            self.ion_field_partial_allz = self.generate_xHII_withPartialIonization(CosmoParams, BMF)
-            self.ion_frac_subpixel = self.compute_volumeweigthed_xHII(self.ion_field_partial_allz)
+            self.barrier = np.array([BMF.B(z, self.r) for z in self.z]) #BMF.barrier
+        self.ion_field_allz, self.ion_frac = self.generate_xHII(CosmoParams, CoeffStructure, BMF)
 
         ### computing the mass weighted ionized fraction
+
+        self._has_mw = False
         self.lowres_massweighting = lowres_massweighting
-        self.ion_frac_massweighted = np.empty(len(self.z))
-        if self.COMPUTE_MASSWEIGHTED_IONFRAC:
-            self.ion_frac_massweighted = self.compute_massweighted_xHII(CosmoParams, self.ion_field_allz, self.lowres_massweighting)
+        if self.COMPUTE_MASSWEIGHTED:
+            self.compute_massweighted(CosmoParams, self.lowres_massweighting)
 
-            if self.INCLUDE_PARTIALION:
-                self.ion_frac_massweighted_subpixel = self.compute_massweighted_xHII(CosmoParams, self.ion_field_partial_allz, self.lowres_massweighting)
+        self._has_p = False
+        if self.COMPUTE_PARTIAL_IONIZATIONS:
+            self.compute_partial(CosmoParams, BMF)
 
-        ### computing zreion and treion
+        self._has_mwp = False
+        if self.COMPUTE_PARTIAL_AND_MASSWEIGHTED:
+            self.compute_partial_massweighted(CosmoParams, BMF)
+
         if self.COMPUTE_ZREION:
             self.zreion = self.compute_zreion_frombinaryxHII()
             self.treion = self.compute_treion(ClassyCosmo)
+            
         
         if self.PRINT_TIMER:
             z21_utilities.print_timer(self._start_time, text_before="Total computation time: ")
@@ -294,8 +287,7 @@ class reionization_maps:
             pb = pbox.LogNormalPowerBox(N=self.ncells, dim=3, pk=(lambda k: np.exp(pk_spl(np.log(k)))), boxlength=self.boxlength, seed=self.seed)
         else:
             pb = pbox.PowerBox(N=self.ncells, dim=3, pk=(lambda k: np.exp(pk_spl(np.log(k)))), boxlength=self.boxlength, seed=self.seed)
-        density_field = pb.delta_x()
-
+        density_field = pb.delta_x().astype(np.float32, copy=False)
         if self.PRINT_TIMER:
             z21_utilities.print_timer(start_time, text_before="    done in ")
         return density_field
@@ -304,14 +296,15 @@ class reionization_maps:
         if self.PRINT_TIMER:
             start_time = time.time()
             print('Evolving density field...')
-
         Dg = CosmoParams.growthint(self.z)
         growthfactor_ratio = (Dg/Dg[0])[:, np.newaxis, np.newaxis, np.newaxis]
         density_lastz = np.copy(self.density)
         self.density_allz = density_lastz[np.newaxis]*growthfactor_ratio
-
         if self.PRINT_TIMER:
             z21_utilities.print_timer(start_time, text_before="    done in ")
+
+        self._has_density = True
+            
         return self.density_allz
 
     def compute_k(self):
@@ -323,10 +316,8 @@ class reionization_maps:
         if self.PRINT_TIMER:
             start_time = time.time()
             print("Smoothing density field...")
-
         density_fft = np.fft.fftn(self.density)
         density_smoothed_allr = np.array([z21_utilities.tophat_smooth(rr, self._k, density_fft) for rr in self.r])
-
         if self.PRINT_TIMER:
             z21_utilities.print_timer(start_time, text_before="    done in ")
         return density_smoothed_allr
@@ -335,20 +326,23 @@ class reionization_maps:
         if self.PRINT_TIMER:
             start_time = time.time()
             print("Generating ionized field...")
-
         ion_field_allz = np.zeros((len(self.z),self.ncells,self.ncells,self.ncells))
-        for i in trange(len(self.z)):
+        ion_frac = np.zeros(len(self.z))
+
+        iterator = trange(len(self.z)) if self.PRINT_TIMER else range(len(self.z))
+        
+        for i in iterator:
             curr_z_idx = self._z_idx[i]
             ion_field = self.ionize(CosmoParams, CoeffStructure, curr_z_idx)
             ion_field_allz[i] = ion_field
-
+            ion_frac[i] = np.sum(ion_field)/(self.ncells**3)
         if self.PRINT_TIMER:
             z21_utilities.print_timer(start_time, text_before="    done in ")
-        return ion_field_allz
+        return ion_field_allz, ion_frac
 
     def ionize(self,CosmoParams, CoeffStructure, curr_z_idx):
-        zlist = CoeffStructure.zintegral
-        Rs = CoeffStructure.Rtabsmoo
+        zlist = self.z #CoeffStructure.zintegral
+        Rs = self.r
         
         Dg0 = CosmoParams.growthint(zlist[0])
         Dg = CosmoParams.growthint(zlist[curr_z_idx])
@@ -367,57 +361,103 @@ class reionization_maps:
             ion_field = np.any(ion_field_Rs, axis=0)
         return ion_field
     
-    def generate_xHII_withPartialIonization(self, CosmoParams, BMF, ir=0):
-        if self.PRINT_TIMER:
-            start_time = time.time()
-            print("Generating ionized field with partial ionization...")
-
-        partialion_field = np.empty(self.ion_field_allz.shape)
-        sample_d = np.linspace(-5, 5, 201)
-        for i in range(len(self.z)):
-            curr_z_idx = self._z_idx[i]
-            nion_spl = spline(sample_d, BMF.nion_delta_r_int(CosmoParams, sample_d, ir).T[curr_z_idx])
-            nrec_spl = spline(sample_d, BMF.nrec(CosmoParams, sample_d, BMF.ion_frac).T[curr_z_idx])
-            partial_ion_spl = spline(sample_d, nion_spl(sample_d)/(1+nrec_spl(sample_d)))
-            partialion_field[i] = partial_ion_spl(self.density_allz[i])
-        ion_field_partial_allz = np.clip(self.ion_field_allz + partialion_field, 0, 1)
-
-        if self.PRINT_TIMER:
-            z21_utilities.print_timer(start_time, text_before="    done in ")
-        return ion_field_partial_allz
-    
-    def compute_volumeweigthed_xHII(self,xHII_field_allz):
-        if self.PRINT_TIMER:
-            start_time = time.time()
-            print("Computing volume weighted ionized fraction...")
-
-        ion_frac = np.sum(xHII_field_allz,axis=(1,2,3))/(self.ncells**3)
-
-        if self.PRINT_TIMER:
-            z21_utilities.print_timer(start_time, text_before="    done in ")
-        return ion_frac
-    
-    def compute_massweighted_xHII(self, CosmoParams, xHII_field_allz, lowres_massweighting=1):
-        if np.sum(self.density_allz[0, 0, 0]) == 0.:
+    def compute_massweighted(self, CosmoParams, lowres_massweighting=1):
+        if not self._has_mw:
+            self.ion_frac_massweighted = np.empty(len(self.z))
+            self.ion_field_massweighted_allz = np.empty_like(self.ion_field_allz)
+        if not self._has_density:
             self.generate_density_allz(CosmoParams)
         self.lowres_massweighting = lowres_massweighting
         if self.lowres_massweighting < 1:
-            raise Exeption('lowres_massweighting should be >=1.')
+            raise Exception('lowres_massweighting should be >=1.')
         if not isinstance(self.lowres_massweighting, (int, np.int32, np.int64)):
-            raise Exeption('lowres_massweighting should be an integer.')
+            raise Exception('lowres_massweighting should be an integer.')
         d_allz = self.density_allz[:, ::self.lowres_massweighting, ::self.lowres_massweighting, ::self.lowres_massweighting]
-        ion_allz = xHII_field_allz[:, ::self.lowres_massweighting, ::self.lowres_massweighting, ::self.lowres_massweighting]
+        ion_allz = self.ion_field_allz[:, ::self.lowres_massweighting, ::self.lowres_massweighting, ::self.lowres_massweighting]
+        if self.PRINT_TIMER:
+            start_time = time.time()
+            print("Computing mass-weighted field...")
+        self.ion_field_massweighted_allz = (1+d_allz) * ion_allz
+        if self.PRINT_TIMER:
+            print("Computing mass-weighted ionized fraction...")
+        self.ion_frac_massweighted = np.average(self.ion_field_massweighted_allz, axis=(1, 2, 3))
+        
+        if self.PRINT_TIMER:
+            z21_utilities.print_timer(start_time, text_before="    done in ")
+
+        self._has_mw = True
+        
+        return self.ion_frac_massweighted, self.ion_field_massweighted_allz
+
+    def compute_partial(self, CosmoParams, BMF, r=None):
+        if r is None:
+            r = self.r[0]
+        if not self._has_p:
+            self.ion_frac_partial = np.empty(len(self.z))
+            self.ion_field_partial_allz = np.empty_like(self.ion_field_allz)
+        if not self._has_density:
+            self.generate_density_allz(CosmoParams)
+        sample_d = np.linspace(-5, 5, 51)
 
         if self.PRINT_TIMER:
             start_time = time.time()
-            print("Computing mass weighted ionized fraction...")
+            print("Computing partially ionized field...")
 
-        ion_frac_massweighted = np.average((1+d_allz) * ion_allz, axis=(1, 2, 3))
+        iterator = trange(len(self.z)) if self.PRINT_TIMER else range(len(self.z))
+        for i in iterator:
+            nion_spl = spline(sample_d, BMF.nion_delta_r_int(CosmoParams, sample_d, self.z, r)[:, i])
+            nrec_spl = spline(sample_d, BMF.nrec(CosmoParams, sample_d, BMF.ion_frac, self.z)[:, i])
+            partial_ion_spl = spline(sample_d, nion_spl(sample_d)/(1+nrec_spl(sample_d)))
+
+            #if need to do by slices:
+            #np.array([partial_ion_noclip(maps.density_allz[:, i], maps.ion_field_allz[:, i], ir=0) for i in trange(300)]).transpose(1, 0, 2, 3)
+            
+            partialfield = np.abs(partial_ion_spl(self.density_allz[i]))
+            sumfield = self.ion_field_allz[i] + partialfield
+            self.ion_field_partial_allz[i] = np.clip(sumfield, 0, 1)
+
+        if self.PRINT_TIMER:
+            print("Computing partial ionized fraction...")
+
+        self.ion_frac_partial = np.average(self.ion_field_partial_allz, axis=(1, 2, 3))
 
         if self.PRINT_TIMER:
             z21_utilities.print_timer(start_time, text_before="    done in ")
-        return ion_frac_massweighted
-    
+
+        self._has_p = True
+            
+        return self.ion_frac_partial, self.ion_field_partial_allz
+
+    def compute_partial_massweighted(self, CosmoParams, BMF, r=None):
+        if not self._has_p:
+            self.compute_partial(CosmoParams, BMF, r)
+
+        if not self._has_mwp:
+            self.ion_frac_partial_massweighted = np.empty(len(self.z))
+            self.ion_field_partial_massweighted_allz = np.empty_like(self.ion_field_allz)
+
+        if self.PRINT_TIMER:
+            start_time = time.time()
+            print("Computing mass-weighted partially ionized field...")
+
+        iterator = trange(len(self.z)) if self.PRINT_TIMER else range(len(self.z))
+        for i in iterator:
+            self.ion_field_partial_massweighted_allz[i] = (1+self.density_allz[i]) * self.ion_field_partial_allz[i]
+        
+        if self.PRINT_TIMER:
+            print("Computing mass-weighted partial ionized fraction...")
+
+        iterator = trange(len(self.z)) if self.PRINT_TIMER else range(len(self.z))
+        for i in iterator:
+            self.ion_frac_partial_massweighted[i] = np.average(self.ion_field_partial_massweighted_allz[i])
+        
+        if self.PRINT_TIMER:
+            z21_utilities.print_timer(start_time, text_before="    done in ")
+
+        self._has_mwp = True
+        
+        return self.ion_frac_partial_massweighted, self.ion_field_partial_massweighted_allz
+
     def compute_zreion_frombinaryxHII(self):
         if self.PRINT_TIMER:
             start_time = time.time()
@@ -460,3 +500,5 @@ class reionization_maps:
         for i in range(len(tvalues)):
             neutfrac[i] = np.sum(self.treion>tvalues[i]) / self.ncells**3
         return 1-neutfrac, tvalues
+        
+
