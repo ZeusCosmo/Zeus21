@@ -158,3 +158,48 @@ def test_powerboxCtoR():
     real_field2 = powerboxCtoR(pb)
     assert np.isreal(real_field2).all()
     assert real_field2.shape == (20, 20, 20)
+
+def test_reionization_maps():
+    """Test reionization maps generation"""
+    # Set up the necessary objects
+    UserParams = zeus21.User_Parameters()
+    CosmoParams_input = zeus21.Cosmo_Parameters_Input(kmax_CLASS=100.) # Use higher kmax_CLASS as in test_astrophysics.py
+    ClassyCosmo = zeus21.runclass(CosmoParams_input)
+    CosmoParams = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input, ClassyCosmo)
+    
+    AstroParams = zeus21.Astro_Parameters(UserParams, CosmoParams)
+    HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams, ClassyCosmo)
+    CorrFClass = zeus21.Correlations(UserParams, CosmoParams, ClassyCosmo)
+    
+    # Generate T21 coefficients
+    ZMIN = 20.0  # Use same ZMIN as in test_astrophysics.py
+    Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, ClassyCosmo, AstroParams, HMFintclass, zmin=ZMIN)
+    
+    # Generate BMF
+    BMF = zeus21.BMF(Coeffs, HMFintclass, CosmoParams, AstroParams, ClassyCosmo)
+
+    # Test redshift
+    ztest = 10.0  # A redshift during reionization
+    
+    # Initialize ionized field map
+    map_obj = zeus21.reionization_maps(CosmoParams, ClassyCosmo, CorrFClass, Coeffs, BMF, ztest, input_boxlength=300, ncells=50, seed=12345, PRINT_TIMER=False, COMPUTE_PARTIAL_AND_MASSWEIGHTED=True)
+
+    # Check that ionization map exists
+    assert map_obj.ion_field_allz is not None
+    assert map_obj.ion_field_partial_massweighted_allz is not None
+    assert map_obj.ion_frac is not None
+    assert map_obj.ion_frac_partial_massweighted is not None
+    
+    # Check dimensions
+    assert map_obj.ion_field_allz.shape == (1, 50, 50, 50)
+    assert map_obj.ion_field_partial_massweighted_allz.shape == (1, 50, 50, 50)
+    assert map_obj.ion_frac.shape == (1,)
+    assert map_obj.ion_frac_partial_massweighted.shape == (1,)
+    assert map_obj.barrier.shape == (1, len(map_obj.r))
+    
+    # Check that ionization fractions are between 0 and 1
+    assert (map_obj.ion_field_allz >= 0).all() and (map_obj.ion_field_allz <= 1).all()
+    assert (map_obj.ion_field_partial_massweighted_allz >= 0).all() and (map_obj.ion_field_partial_massweighted_allz <= np.max(map_obj.density_allz+1)).all()
+    assert 0.0 <= map_obj.ion_frac <= 1.0
+    assert 0.0 <= map_obj.ion_frac_partial_massweighted <= 1.0
+    

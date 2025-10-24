@@ -245,7 +245,7 @@ class reionization_maps:
         ### generating the ionized field, and computing the ionized fraction
         self.barrier = barrier
         if self.barrier is None:
-            self.barrier = np.array([BMF.B(z, self.r) for z in self.z]) #BMF.barrier
+            self.barrier = np.array([BMF.B(z, self.r) for z in self.z]) #BMF linear barrier
         self.ion_field_allz, self.ion_frac = self.generate_xHII(CosmoParams, CoeffStructure, BMF)
 
         ### computing the mass weighted ionized fraction
