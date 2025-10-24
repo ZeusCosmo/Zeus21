@@ -36,7 +36,7 @@ class User_Parameters:
         0 to do standard calculation, 1 to force linearization of correlation function.
     MIN_R_NONLINEAR: float
         Minimum radius R/cMpc in which we start doing the nonlinear calculation. 
-        Below ~1 it will blow up because sigma > 1 eventually, and our exp(\delta) approximation breaks. 
+        Below ~1 it will blow up because sigma > 1 eventually, and our exp(delta) approximation breaks. 
         Check if you play with it and if you change Window().
     MAX_R_NONLINEAR: float
         Maximum radius R/cMpc in which we start doing the nonlinear calculation (above this it is very linear)
