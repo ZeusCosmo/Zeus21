@@ -374,7 +374,7 @@ class Power_Spectra:
             #the z>zmax part of the integral we do aside. Assume Tk=Tadiabatic from CLASS.
             _zlisthighz_ = np.linspace(T21_coefficients.zintegral[-1], 99., 100) #beyond z=100 need to explictly tell CLASS to save growth
             _dgrowthhighz_ = cosmology.dgrowth_dz(Cosmo_Parameters, _zlisthighz_)
-            _hizintegral = np.trapz(cosmology.Tadiabatic(Cosmo_Parameters,_zlisthighz_)
+            _hizintegral = np.trapezoid(cosmology.Tadiabatic(Cosmo_Parameters,_zlisthighz_)
             /(1+_zlisthighz_)**2 * _dgrowthhighz_, _zlisthighz_)
 
         self._betaTad_ = -2./3. * _factor_adi_/self._lingrowthd * (np.cumsum(_integrand_adi[::-1])[::-1] + _hizintegral) #units of Tk_avg. Internal sum goes from high to low z (backwards), minus sign accounts for it properly so it's positive.
@@ -1124,7 +1124,7 @@ class Power_Spectra:
 #
 #                 Probdtab = np.exp(-dtab**2/sigmaRRsq/2.0)
 #
-#                 norm = np.trapz(NionEPS * Probdtab, dtab)
+#                 norm = np.trapezoid(NionEPS * Probdtab, dtab)
 #                 NionEPS/=norm
 #
 #                 bindex = min(range(len(NionEPS)), key=lambda i: abs(NionEPS[i]-_invQbar))

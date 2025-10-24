@@ -82,7 +82,7 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
     xlo = np.subtract.outer(MUVcutlo, currMUV )/(np.sqrt(2) * sigmaUV)
     weights = (erf(xhi) - erf(xlo)).T/(2.0 * MUVwidths)
     
-    UVLF_filtered = np.trapz(weights.T * HMFcurr, HMF_interpolator.Mhtab, axis=-1)
+    UVLF_filtered = np.trapezoid(weights.T * HMFcurr, HMF_interpolator.Mhtab, axis=-1)
 
     if(Astro_Parameters.USE_POPIII==False):
         return UVLF_filtered
@@ -98,7 +98,7 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
         xlo = np.subtract.outer(MUVcutlo, MUVbarlist_III)/(np.sqrt(2) * sigmaUV)
         weights = (erf(xhi) - erf(xlo)).T/(2.0 * MUVwidths)
 
-        UVLF_filtered_III = np.trapz(weights.T * HMFcurr, HMF_interpolator.Mhtab, axis=-1)
+        UVLF_filtered_III = np.trapezoid(weights.T * HMFcurr, HMF_interpolator.Mhtab, axis=-1)
     
         return UVLF_filtered, UVLF_filtered_III
 
