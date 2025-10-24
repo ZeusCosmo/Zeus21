@@ -69,7 +69,7 @@ class BMF:
 
         self.BMF = np.array([self.VRdn_dR(z, self.Rs_BMF) for z in self.zlist]) #initial bubble mass function
         self.BMF_initial = np.copy(self.BMF)
-        self.ion_frac = np.nan_to_num([np.trapz(self.BMF[i], np.log(self.Rs_BMF)) for i in range(len(self.zlist))]) #ion_frac by integrating the BMF
+        self.ion_frac = np.nan_to_num([np.trapezoid(self.BMF[i], np.log(self.Rs_BMF)) for i in range(len(self.zlist))]) #ion_frac by integrating the BMF
         self.ion_frac[self.barrier[:, -1]<=0] = 1
         
         if FLAG_converge:
@@ -249,7 +249,7 @@ class BMF:
         niondot_avgs = self.niondot_avg_int(z_arr)
         integrand = dtdz * niondot_avgs * exp
     
-        return np.trapz(integrand, x = z_arr)
+        return np.trapezoid(integrand, x = z_arr)
 
     #computing linear barrier
     def B_1(self, z):
@@ -298,7 +298,7 @@ class BMF:
                 return self.interpz(z, R, self.barrier_int)
             
             self.BMF = np.array([self.VRdn_dR(z, self.Rs_BMF) for z in self.zlist])
-            self.ion_frac = np.nan_to_num([np.trapz(self.BMF[i], np.log(self.Rs_BMF)) for i in range(len(self.zlist))])
+            self.ion_frac = np.nan_to_num([np.trapezoid(self.BMF[i], np.log(self.Rs_BMF)) for i in range(len(self.zlist))])
             self.ion_frac[self.barrier[:, -1]<=0] = 1
 
             if np.allclose(ion_frac_prev, self.ion_frac):
