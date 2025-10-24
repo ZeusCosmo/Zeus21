@@ -57,7 +57,7 @@ def test_background():
     assert( (0 <= sSFR).all()) #positive
     assert( (sSFR/zeus21.cosmology.Hubinvyr(CosmoParams,ztest) <= 1).all()) #make sure sSFR/H < 1 (not all mass forms stars in a Hubble time)
     
-    sSFR3 = SFR_III(AstroParams, CosmoParams, ClassyCosmo, HMFintclass, HMFintclass.Mhtab, Coeffs_popIII.J21LW_interp_conv_avg, ztest, ztest, ClassyCosmo.pars['v_avg'])/HMFintclass.Mhtab
+    sSFR3 = SFR_III(AstroParams, CosmoParams, HMFintclass, HMFintclass.Mhtab, Coeffs_popIII.J21LW_interp_conv_avg, ztest, ztest, ClassyCosmo.pars['v_avg'])/HMFintclass.Mhtab
     assert( (0 <= sSFR3).all()) #positive
     assert( (sSFR3/zeus21.cosmology.Hubinvyr(CosmoParams,ztest) <= 1).all()) #make sure sSFR3/H < 1 (not all mass forms stars in a Hubble time)
 
@@ -67,7 +67,7 @@ def test_background():
     assert( (0 <= sSFR_exp).all())
     assert( (sSFR_exp/zeus21.cosmology.Hubinvyr(CosmoParams,ztest) <= 1).all())
     
-    sSFR_exp3 = SFR_III(AstroParams_expacc, CosmoParams, ClassyCosmo, HMFintclass, HMFintclass.Mhtab, Coeffs_popIII.J21LW_interp_conv_avg, ztest, ztest, ClassyCosmo.pars['v_avg'])/HMFintclass.Mhtab
+    sSFR_exp3 = SFR_III(AstroParams_expacc, CosmoParams, HMFintclass, HMFintclass.Mhtab, Coeffs_popIII.J21LW_interp_conv_avg, ztest, ztest, ClassyCosmo.pars['v_avg'])/HMFintclass.Mhtab
     assert( (0 <= sSFR_exp3).all())
     assert( (sSFR_exp3/zeus21.cosmology.Hubinvyr(CosmoParams,ztest) <= 1).all())
 
@@ -77,7 +77,7 @@ def test_background():
     assert( (0 <= sSFR_21cmfast).all())
     assert( (sSFR_21cmfast/zeus21.cosmology.Hubinvyr(CosmoParams_21cmfast,ztest) <= 1).all())
     
-    sSFR_21cmfast3 = SFR_III(AstroParams_expacc, CosmoParams_21cmfast, ClassyCosmo, HMFintclass, HMFintclass.Mhtab, Coeffs_popIII.J21LW_interp_conv_avg, ztest, ztest, ClassyCosmo.pars['v_avg'])/HMFintclass.Mhtab
+    sSFR_21cmfast3 = SFR_III(AstroParams_expacc, CosmoParams_21cmfast, HMFintclass, HMFintclass.Mhtab, Coeffs_popIII.J21LW_interp_conv_avg, ztest, ztest, ClassyCosmo.pars['v_avg'])/HMFintclass.Mhtab
     assert( (0 <= sSFR_21cmfast3).all())
     assert( (sSFR_21cmfast3/zeus21.cosmology.Hubinvyr(CosmoParams_21cmfast,ztest) <= 1).all())
 

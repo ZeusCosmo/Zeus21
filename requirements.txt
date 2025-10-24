@@ -1,11 +1,12 @@
 pytest
 numpy
 scipy
-sphinx
-myst_parser
+mcfit
 numexpr
 astropy
 tqdm
 matplotlib
-powerbox
 pyfftw
+powerbox
+sphinx
+myst_parser

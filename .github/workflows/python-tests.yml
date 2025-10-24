@@ -1,0 +1,67 @@
+name: Python Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install CLASS dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential gfortran
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov
+        pip install Cython
+        pip install -r requirements.txt
+        
+    - name: Install CLASS
+      run: |
+        git clone https://github.com/lesgourg/class_public.git
+        cd class_public
+        make
+        cd python
+        python setup.py install
+        cd ../../
+        # Keep the directory for data files
+        
+    - name: Install package
+      run: |
+        pip install -e .
+    
+    - name: Debug SFR_III function
+      env:
+        CLASSDIR: ${{ github.workspace }}/class_public
+      run: |
+        python -c "import zeus21; from zeus21.sfrd import SFR_III; import inspect; print('SFR_III parameters:', inspect.signature(SFR_III)); print('Parameter count:', len(inspect.signature(SFR_III).parameters))"
+        
+    - name: Run tests with coverage
+      env:
+        CLASSDIR: ${{ github.workspace }}/class_public
+      run: |
+        python -m pytest --cov=zeus21 --cov-report=xml --cov-report=term tests/
+    
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v4
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      with:
+        files: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        verbose: true
+        fail_ci_if_error: false

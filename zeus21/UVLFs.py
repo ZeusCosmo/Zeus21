@@ -7,15 +7,19 @@ UT Austin - June 2023
 
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
+
+Bug fix by Emily Bregou
+UT Austin - June 2025
 """
 
 from . import cosmology
 from . import constants
-from .sfrd import SFR_II
+from .sfrd import SFR_II, SFR_III
 from .cosmology import bias_Tinker
 
 import numpy as np
 from scipy.special import erf
+from scipy.interpolate import interp1d
 
 
 
@@ -45,13 +49,12 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
     
     SFRlist = SFR_II(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, HMF_interpolator.Mhtab, zcenter, zcenter)
     sigmaUV = Astro_Parameters.sigmaUV
-  
+    
     if (constants.FLAG_RENORMALIZE_LUV == True): #lower the LUV (or SFR) to recover the true avg, not log-avg
         SFRlist/= np.exp((np.log(10)/2.5*sigmaUV)**2/2.0)
         
     MUVbarlist = MUV_of_SFR(SFRlist, Astro_Parameters._kappaUV) #avg for each Mh
     MUVbarlist = np.fmin(MUVbarlist,constants._MAGMAX)
-    
     
 
     if(RETURNBIAS==True): # weight by bias
@@ -68,20 +71,36 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
     if(DUST_FLAG==True):
         currMUV2 = np.ones_like(currMUV)
         while(np.sum(np.abs((currMUV2-currMUV)/currMUV)) > 0.02):
-            currMUV = MUVbarlist + AUV(Astro_Parameters,zcenter,currMUV)
             currMUV2 = currMUV
+            currMUV = MUVbarlist + AUV(Astro_Parameters,zcenter,currMUV)
            
     
     MUVcuthi = MUVcenters +  MUVwidths/2.
     MUVcutlo = MUVcenters -  MUVwidths/2.
     
-    xhi = np.subtract.outer(MUVcuthi , currMUV)/(np.sqrt(2) * sigmaUV)
+    xhi = np.subtract.outer(MUVcuthi, currMUV)/(np.sqrt(2) * sigmaUV)
     xlo = np.subtract.outer(MUVcutlo, currMUV )/(np.sqrt(2) * sigmaUV)
     weights = (erf(xhi) - erf(xlo)).T/(2.0 * MUVwidths)
     
     UVLF_filtered = np.trapz(weights.T * HMFcurr, HMF_interpolator.Mhtab, axis=-1)
-       
-    return UVLF_filtered
+
+    if(Astro_Parameters.USE_POPIII==False):
+        return UVLF_filtered
+    else:
+        _J21interptemp = interp1d(np.linspace(0,100,3), np.zeros(3), kind = 'linear', bounds_error = False, fill_value = 0,) #TODO: how to deal with J21, requires running get_21_coefficients
+        SFRlist_III = SFR_III(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, HMF_interpolator.Mhtab, _J21interptemp, zcenter, zcenter, Cosmo_Parameters.vcb_avg)
+    
+        MUVbarlist_III = MUV_of_SFR(SFRlist_III, Astro_Parameters._kappaUV_III) #avg for each Mh
+        MUVbarlist_III = np.fmin(MUVbarlist_III,constants._MAGMAX)
+          
+        #and the same for popIII, TODO: ignore dust for pop3 for now
+        xhi = np.subtract.outer(MUVcuthi, MUVbarlist_III)/(np.sqrt(2) * sigmaUV)
+        xlo = np.subtract.outer(MUVcutlo, MUVbarlist_III)/(np.sqrt(2) * sigmaUV)
+        weights = (erf(xhi) - erf(xlo)).T/(2.0 * MUVwidths)
+
+        UVLF_filtered_III = np.trapz(weights.T * HMFcurr, HMF_interpolator.Mhtab, axis=-1)
+    
+        return UVLF_filtered, UVLF_filtered_III
 
 
 
