@@ -43,7 +43,7 @@ CosmoParams_21cmfast = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input_21c
 AstroParams_21cmfast = zeus21.Astro_Parameters(UserParams,CosmoParams_21cmfast, astromodel = 1)
 
 #and for bubbles:
-BMF_class = zeus21.BMF(UserParams, Coeffs, HMFintclass, CosmoParams, AstroParams)
+BMF_class = zeus21.BMF(Coeffs, HMFintclass, CosmoParams, AstroParams, ClassyCosmo)
 
 
 ztest = 20.

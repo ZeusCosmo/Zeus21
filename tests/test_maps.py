@@ -11,7 +11,8 @@ import pytest
 import zeus21
 import numpy as np
 
-from zeus21.maps import CoevalMaps, powerboxCtoR
+from zeus21.maps import CoevalMaps
+from zeus21.z21_utilities import powerboxCtoR
 
 def test_coevalmaps_initialization():
     """Test that CoevalMaps initializes correctly"""
