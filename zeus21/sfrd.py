@@ -7,6 +7,9 @@ UT Austin and Harvard CfA - January 2023
 
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
+
+Edited by Emily Bregou
+UT Austin - October 2025
 """
 
 from . import cosmology
@@ -681,10 +684,10 @@ def Mmol(Astro_Parameters, Cosmo_Parameters, J21LW_interp, z, vCB):
 def fstarofz(Astro_Parameters, Cosmo_Parameters, z, Mhlist):
     epsstar_ofz = Astro_Parameters.epsstar * 10**(Astro_Parameters.dlog10epsstardz * (z-Astro_Parameters._zpivot) )
     if Cosmo_Parameters.Flag_emulate_21cmfast == False:
-        return 2.0 * Cosmo_Parameters.OmegaB/Cosmo_Parameters.OmegaM * epsstar_ofz\
-        /(pow(Mhlist/Astro_Parameters.Mc,- Astro_Parameters.alphastar) + pow(Mhlist/Astro_Parameters.Mc,- Astro_Parameters.betastar) )
+        return Cosmo_Parameters.OmegaB/Cosmo_Parameters.OmegaM * np.clip(2.0 * epsstar_ofz\
+        /(pow(Mhlist/Astro_Parameters.Mc,- Astro_Parameters.alphastar) + pow(Mhlist/Astro_Parameters.Mc,- Astro_Parameters.betastar) ), 0, 1)
     elif Cosmo_Parameters.Flag_emulate_21cmfast == True:
-        return Cosmo_Parameters.OmegaB/Cosmo_Parameters.OmegaM * epsstar_ofz /(pow(Mhlist/Astro_Parameters.Mc,- Astro_Parameters.alphastar))
+        return Cosmo_Parameters.OmegaB/Cosmo_Parameters.OmegaM * np.clip(epsstar_ofz /(pow(Mhlist/Astro_Parameters.Mc,- Astro_Parameters.alphastar)), 0, 1)
 
     
 ###HAC: Added fstar for PopIII
