@@ -25,14 +25,14 @@ class BMF:
     
     """
     
-    def __init__(self, CoeffStructure, HMFintclass, CosmoParams, AstroParams, ClassyCosmo, R_linear_sigma_fit_input=10, FLAG_converge=True, max_iter=10, ZMAX_REION = 30, Rmin=0.05):
+    def __init__(self, CoeffStructure, HMFintclass, CosmoParams, AstroParams, ClassyCosmo, R_linear_sigma_fit_input=10, FLAG_converge=True, max_iter=10, ZMAX_REION = 30, Rmin=0.05, PRINT_SUCCESS=True):
 
+        self.PRINT_SUCCESS = PRINT_SUCCESS
         self.ZMAX_REION = ZMAX_REION #max redshift up to which we calculate reionization observables
         self.zlist = CoeffStructure.zintegral
         self.Rs = CoeffStructure.Rtabsmoo
         self.Rs_BMF = np.logspace(np.log10(Rmin), np.log10(self.Rs[-1]), 100)
         self.ds_array = np.linspace(-1, 5, 101)
-
         
         self.gamma = CoeffStructure.gamma_niondot_II_index2D
         self.gamma2 = CoeffStructure.gamma2_niondot_II_index2D
@@ -307,7 +307,8 @@ class BMF:
 
     def converge_BMF(self, CosmoParams, ion_frac_input, max_iter):
         self.ion_frac = ion_frac_input
-        for j in trange(max_iter):
+        iterator = trange(max_iter) if self.PRINT_SUCCESS else range(max_iter)
+        for j in iterator:
             ion_frac_prev = np.copy(self.ion_frac)
             
             self.barrier = self.compute_barrier(CosmoParams, self.ion_frac, self.zlist, self.Rs)
@@ -323,7 +324,8 @@ class BMF:
             self.ion_frac[self.barrier[:, -1]<=0] = 1
 
             if np.allclose(ion_frac_prev, self.ion_frac):
-                print(f'SUCCESS: BMF converged in {j} iterations.')
+                if self.PRINT_SUCCESS:
+                    print(f'SUCCESS: BMF converged in {j} iterations.')
                 return 
             
         print(f"WARNING: BMF didn't converge within {max_iter} iterations.")
