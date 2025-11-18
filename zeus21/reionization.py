@@ -31,6 +31,7 @@ class BMF:
         self.zlist = CoeffStructure.zintegral
         self.Rs = CoeffStructure.Rtabsmoo
         self.Rs_BMF = np.logspace(np.log10(Rmin), np.log10(self.Rs[-1]), 100)
+        self.ds_array = np.linspace(-1, 5, 101)
 
         
         self.gamma = CoeffStructure.gamma_niondot_II_index2D
@@ -59,10 +60,14 @@ class BMF:
         zr_mesh = np.meshgrid(np.arange(len(self.Rs)), np.arange(len(self.zlist)))
         self.nion_norm = self.nion_normalization(zr_mesh[1], zr_mesh[0])
         self.nion_norm_int = RegularGridInterpolator(self.zr, self.nion_norm, bounds_error = False, fill_value = np.nan)
-        
+
+        self.prebarrier_xHII = np.empty((len(self.ds_array), len(self.zlist), len(self.Rs)))
         self.barrier = self.compute_barrier(CosmoParams, self.ion_frac, self.zlist, self.Rs)
         self.barrier_initial = np.copy(self.barrier)
         self.barrier_int = RegularGridInterpolator(self.zr, self.barrier, bounds_error = False, fill_value = np.nan)
+
+        self.dzr = [self.ds_array, self.zlist, np.log(self.Rs)]
+        self.prebarrier_xHII_int = RegularGridInterpolator(self.dzr, self.prebarrier_xHII, bounds_error = False, fill_value = None) #allow extrapolation
 
         self.R_linear_sigma_fit_idx = z21_utilities.find_nearest_idx(self.Rs, R_linear_sigma_fit_input)
         self.R_linear_sigma_fit = self.Rs[self.R_linear_sigma_fit_idx]
@@ -77,6 +82,16 @@ class BMF:
         #two functions: compute BMF and iterate
         
 
+    def compute_prebarrier_xHII(self, CosmoParams, ion_frac, z, R):
+        """
+        
+        """
+        nion_values = self.nion_delta_r_int(CosmoParams, z, R)  #Shape (nd, nz)
+        nrec_values = self.nrec(CosmoParams, ion_frac, z)       #Shape (nd, nz)
+        
+        prebarrier_xHII = nion_values / (1 + nrec_values)
+
+        return prebarrier_xHII
 
     def compute_barrier(self, CosmoParams, ion_frac, z, R):
         """
@@ -97,7 +112,6 @@ class BMF:
             The resultant density threshold array. First dimension is each redshift, second dimension is each radius scale.
         """
         barrier = np.zeros((len(z), len(R)))
-        ds_array = np.linspace(-1, 5, 101)
 
         zarg = np.argsort(z) #sort just in case
         z = z[zarg]
@@ -105,28 +119,26 @@ class BMF:
         
         for ir in range(len(R)):
             #Compute nion_values and nrec_values for this 'ir'
-            nion_values = self.nion_delta_r_int(CosmoParams, ds_array, z, R[ir])  #Shape (nd, nz)
-            nrec_values = self.nrec(CosmoParams, ds_array, ion_frac, z)             #Shape (nd, nz)
-        
-            total_values = np.log10(nion_values / (1 + nrec_values) + 1e-10)   #taking difference in logspace to find zero-crossing 
+            self.prebarrier_xHII[:, :, ir] =  self.compute_prebarrier_xHII(CosmoParams, ion_frac, z, R[ir])
+            total_values = np.log10(self.prebarrier_xHII[:, :, ir] + 1e-10)
         
             #Loop over redshift indices
-            for i in range(len(self.zlist)):
-                y_values = total_values[:, i]  #Shape (nd,)
+            for iz in range(len(self.zlist)):
+                y_values = total_values[:, iz]  #Shape (nd,)
         
                 #Find zero crossings
                 sign_change = np.diff(np.sign(y_values))
                 idx = np.where(sign_change)[0]
                 if idx.size > 0:
                     #Linear interpolation to find zero crossings
-                    x0 = ds_array[idx]
-                    x1 = ds_array[idx + 1]
+                    x0 = self.ds_array[idx]
+                    x1 = self.ds_array[idx + 1]
                     y0 = y_values[idx]
                     y1 = y_values[idx + 1]
                     x_intersect = x0 - y0 * (x1 - x0) / (y1 - y0)
-                    barrier[i, ir] = x_intersect[0]  #Assuming we take the first crossing
+                    barrier[iz, ir] = x_intersect[0]  #Assuming we take the first crossing
                 else:
-                    barrier[i, ir] = np.nan #Never crosses
+                    barrier[iz, ir] = np.nan #Never crosses
         barrier = barrier * (CosmoParams.growthint(self.zlist)/CosmoParams.growthint(self.zlist[0]))[:, np.newaxis] #scale barrier with growth factor
         barrier[self.zlist > self.ZMAX_REION] = 100 #sets density to an unreachable barrier, as if reionization isn't happening
         return barrier
@@ -135,7 +147,7 @@ class BMF:
     def nion_normalization(self, z, R):
         return 1/np.sqrt(1-2*self.gamma2[z, R]*self.sigma[z, R]**2)*np.exp(self.gamma[z, R]**2 * self.sigma[z, R]**2 / (2-4*self.gamma2[z, R]*self.sigma[z, R]**2))
 
-    def nrec(self, CosmoParams, d_array, ion_frac, z):
+    def nrec(self, CosmoParams, ion_frac, z, d_array=None):
         """
         Vectorized computation of nrec over an array of overdensities d_array.
 
@@ -156,6 +168,9 @@ class BMF:
         zarg = np.argsort(z) #sort just in case
         z = z[zarg]
         ion_frac = ion_frac[zarg]
+
+        if d_array is None:
+            d_array = self.ds_array
         
         #reverse the inputs to make the integral easier to compute
         z_rev = z[::-1]
@@ -174,7 +189,7 @@ class BMF:
         nrecs = nrecs[:, ::-1]  #reverse back to increasing z order
         return nrecs
     
-    def niondot_delta_r(self, CosmoParams, d_array, z, R):
+    def niondot_delta_r(self, CosmoParams, z, R, d_array=None):
         """
         Compute niondot over an array of overdensities d_array for a given R.
 
@@ -195,6 +210,9 @@ class BMF:
 
         zarg = np.argsort(z) #sort just in case
         z = z[zarg]
+
+        if d_array is None:
+            d_array = self.ds_array
         
         d_array = d_array[:, np.newaxis] * CosmoParams.growthint(z)[np.newaxis, :] / CosmoParams.growthint(z[0])
     
@@ -207,7 +225,7 @@ class BMF:
         
         return niondot
     
-    def nion_delta_r_int(self, CosmoParams, d_array, z, R):
+    def nion_delta_r_int(self, CosmoParams, z, R, d_array=None):
         """
         Vectorized computation of nion over an array of overdensities d_array for a given R.
 
@@ -227,12 +245,15 @@ class BMF:
         """
 
         z.sort() #sort if not sorted
+
+        if d_array is None:
+            d_array = self.ds_array
         
         #reverse the inputs to make the integral easier to compute
         z_rev = z[::-1]
         Hz_rev = cosmology.Hubinvyr(CosmoParams, z_rev)
     
-        niondot_values = self.niondot_delta_r(CosmoParams, d_array, z, R)
+        niondot_values = self.niondot_delta_r(CosmoParams, z, R, d_array)
     
         integrand = -1 / (1 + z_rev) / Hz_rev * niondot_values[:, ::-1]
         nion = cumulative_trapezoid(integrand, x=z_rev, initial=0)[:, ::-1] #reverse back to increasing z order
@@ -349,3 +370,35 @@ class BMF:
         return self.interpR(z, R, self.nion_norm_int)
     def nion_normz_int(self, z, R):
         return self.interpz(z, R, self.nion_norm_int)
+
+    def prebarrier_xHII_int_grid(self, d, z, R):
+        """
+        Evaluate prebarrier xHII on a density field d(x),
+        at fixed redshift z and smoothing radius R.
+
+        Parameters
+        ----------
+        d: np.ndarray
+            Density/overdensity field. Can be any shape (...).
+        z: float
+            Redshift.
+        R: float
+            Smoothing radius (cMpc).
+
+        Output
+        ----------
+        values: np.ndarray
+            xHII field with the same shape as d.
+        """
+        
+        d = np.asarray(d, dtype=float)
+
+        z_arr   = np.full_like(d, float(z), dtype=float)
+        logr_arr = np.full_like(d, np.log(float(R)), dtype=float)
+
+        #stack into points (..., 3) where last axis is (delta, z, logR)
+        points = np.stack([d, z_arr, logr_arr], axis=-1)
+
+        values = self.prebarrier_xHII_int(points)
+
+        return values

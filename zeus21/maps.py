@@ -406,12 +406,7 @@ class reionization_maps:
 
         iterator = trange(len(self.z)) if self.PRINT_TIMER else range(len(self.z))
         for i in iterator:
-            nion_spl = spline(sample_d, BMF.nion_delta_r_int(CosmoParams, sample_d, self.z, r)[:, i])
-            nrec_spl = spline(sample_d, BMF.nrec(CosmoParams, sample_d, BMF.ion_frac, self.z)[:, i])
-            partial_ion_spl = spline(sample_d, nion_spl(sample_d)/(1+nrec_spl(sample_d)))
-
-            #if need to do by slices:
-            #np.array([partial_ion_noclip(maps.density_allz[:, i], maps.ion_field_allz[:, i], ir=0) for i in trange(300)]).transpose(1, 0, 2, 3)
+            partial_ion_spl = spline(sample_d, BMF.prebarrier_xHII_int_grid(sample_d, self.z[i], r)) #spline is faster than RGI, so build a spline on sample densities
             
             partialfield = np.abs(partial_ion_spl(self.density_allz[i]))
             sumfield = self.ion_field_allz[i] + partialfield
