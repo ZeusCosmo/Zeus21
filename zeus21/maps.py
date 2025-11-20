@@ -45,13 +45,14 @@ class CoevalMaps:
         if (KIND == 0): #just T21, ~gaussian
                 
             P21 = Power_Spectrum.Deltasq_T21_lin[_iz]/k3over2pi2
-            P21norminterp = interp1d(klist,P21/self.T21global**2,fill_value=0.0,bounds_error=False)
+            #P21norminterp = interp1d(klist,P21/self.T21global**2,fill_value=0.0,bounds_error=False) OLD
+            P21_spl = spline(np.log(klist), np.log(P21/self.T21global**2)) #spline over log values
 
 
             pb = pbox.PowerBox(
                 N=self.Nbox,                     
                 dim=3,                     
-                pk = lambda k: P21norminterp(k), 
+                pk = lambda k: np.exp(P21_spl(np.log(k))), 
                 boxlength = self.Lbox,           
                 seed = self.seed                
             )
@@ -63,12 +64,13 @@ class CoevalMaps:
             
         elif (KIND == 1):
             Pd = Power_Spectrum.Deltasq_d_lin[_iz,:]/k3over2pi2
-            Pdinterp = interp1d(klist,Pd,fill_value=0.0,bounds_error=False)
+            #Pdinterp = interp1d(klist,Pd,fill_value=0.0,bounds_error=False) OLD
+            Pd_spl = spline(np.log(klist), np.log(Pd))
 
             pb = pbox.PowerBox(
                 N=self.Nbox,                     
                 dim=3,                     
-                pk = lambda k: Pdinterp(k), 
+                pk = lambda k: np.exp(Pd_spl(np.log(k))), 
                 boxlength = self.Lbox,           
                 seed = self.seed               
             )
@@ -78,12 +80,13 @@ class CoevalMaps:
             #then we make a map of the linear T21 fluctuation, better to use the cross to keep sign, at linear level same 
             PdT21 = Power_Spectrum.Deltasq_dT21[_iz]/k3over2pi2
 
-            powerratioint = interp1d(klist,PdT21/Pd,fill_value=0.0,bounds_error=False)
+            #powerratioint = interp1d(klist,PdT21/Pd,fill_value=0.0,bounds_error=False) OLD
+            powerratio_spl = spline(klist, PdT21/Pd) #cross can be negative, so can't interpolate over log values
 
 
             deltak = pb.delta_k()
 
-            powerratio = powerratioint(pb.k())
+            powerratio = powerratio_spl(pb.k())
             T21lin_k = powerratio * deltak
             self.T21maplin= self.T21global + z21_utilities.powerboxCtoR(pb,mapkin = T21lin_k)
 
