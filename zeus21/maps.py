@@ -237,13 +237,15 @@ class reionization_maps:
         ### generating the density field at the closest redshift to the lower one inputed
         self.z_of_density = self.z[0]
         self.density = self.generate_density(ClassyCosmo, CorrFClass)
-        self.density_allz = np.empty((len(self.z), self.ncells, self.ncells, self.ncells), dtype=np.float32)
-        if self.COMPUTE_DENSITY_AT_ALLZ:
-            self.generate_density_allz(CosmoParams)
 
         ### smoothing the density field
         self._k = self.compute_k()
         self.density_smoothed_allr = self.smooth_density()
+
+        ### evolving density
+        self.density_allz = np.empty((len(self.z), self.ncells, self.ncells, self.ncells), dtype=np.float32)
+        if self.COMPUTE_DENSITY_AT_ALLZ:
+            self.generate_density_allz(CosmoParams)
 
         ### generating the ionized field, and computing the ionized fraction
         self.barrier = barrier
@@ -302,7 +304,7 @@ class reionization_maps:
             print('Evolving density field...')
         Dg = CosmoParams.growthint(self.z)
         growthfactor_ratio = (Dg/Dg[0])[:, np.newaxis, np.newaxis, np.newaxis]
-        density_lastz = np.copy(self.density)
+        density_lastz = np.copy(self.density_smoothed_allr[0])
         self.density_allz = density_lastz[np.newaxis]*growthfactor_ratio
         if self.PRINT_TIMER:
             z21_utilities.print_timer(start_time, text_before="    done in ")
@@ -411,7 +413,7 @@ class reionization_maps:
         for i in iterator:
             partial_ion_spl = spline(sample_d, BMF.prebarrier_xHII_int_grid(sample_d, self.z[i], r)) #spline is faster than RGI, so build a spline on sample densities
             
-            partialfield = np.abs(partial_ion_spl(self.density_allz[i]))
+            partialfield = np.abs(partial_ion_spl(self.density_smoothed_allr[0])) #abs just in case, but it never actually triggers afaik
             sumfield = self.ion_field_allz[i] + partialfield
             self.ion_field_partial_allz[i] = np.clip(sumfield, 0, 1)
 

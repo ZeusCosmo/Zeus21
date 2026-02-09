@@ -36,7 +36,7 @@ class BMF:
         
         self.gamma = CoeffStructure.gamma_niondot_II_index2D
         self.gamma2 = CoeffStructure.gamma2_niondot_II_index2D
-        self.sigma = CoeffStructure.sigmaofRtab
+        self.sigma = np.array([[ClassyCosmo.sigma(r, z) for z in self.zlist] for r in self.Rs]).T#CoeffStructure.sigmaofRtab
         
         self.zr = [self.zlist, np.log(self.Rs)]
         self.gamma_int = RegularGridInterpolator(self.zr, self.gamma, bounds_error = False, fill_value = np.nan)
@@ -44,7 +44,7 @@ class BMF:
 
         self.sigma_BMF = np.array([[ClassyCosmo.sigma(r, z) for z in self.zlist] for r in self.Rs_BMF]).T
         self.zr_BMF = [self.zlist, np.log(self.Rs_BMF)]
-        self.sigma_int = RegularGridInterpolator(self.zr_BMF, self.sigma_BMF, bounds_error = False, fill_value = np.nan)
+        self.sigma_int = RegularGridInterpolator(self.zr_BMF, self.sigma_BMF, bounds_error = False, fill_value = None)
         
         self.Hz = cosmology.Hubinvyr(CosmoParams, self.zlist)
         self.trec0 = 1/(constants.alphaB * cosmology.n_H(CosmoParams,0) * AstroParams._clumping) #seconds
