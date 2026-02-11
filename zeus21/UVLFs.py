@@ -35,7 +35,7 @@ def MUV_of_SFR(SFRtab, kappaUV):
 
 
 #and combine to get UVLF:
-def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwidth, MUVcenters, MUVwidths, min_MUV = None, DUST_FLAG=True, RETURNBIAS = False, RETURNWEIGHTS = False):
+def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwidth, MUVcenters, MUVwidths, minMUV = None, DUST_FLAG=True, RETURNBIAS = False, RETURNWEIGHTS = False):
     'Binned UVLF in units of 1/Mpc^3/mag, for bins at <zcenter> with a Gaussian width zwidth, centered at MUV centers with tophat width MUVwidths. z width only in HMF since that varies the most rapidly. If flag RETURNBIAS set to true it returns number-avgd bias instead of UVLF, still have to divide by UVLF'
     
     if(constants.NZ_TOINT>1):
@@ -81,15 +81,16 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
     xhi = np.subtract.outer(MUVcuthi, currMUV)/(np.sqrt(2) * sigmaUV)
     xlo = np.subtract.outer(MUVcutlo, currMUV )/(np.sqrt(2) * sigmaUV)
 
-    # Cut distributions based on min_MUV (user-input, halo mass depenent):
-    if min_MUV is None:
-        min_MUV = np.full_like(-100, HMF_interpolator.Mhtab)
-    x_min = (min_MUV - currMUV)/(np.sqrt(2) * sigmaUV)
+    # Cut distributions based on minMUV (user-input, halo mass depenent)
+    #MUVmin can be set to be MUV_of_SFR(max_SFR, Astro_Parameters._kappaUV), with max_SFR = Mstar/min_t & Mstar = fb*Mh
+    if minMUV is None:
+        minMUV = np.full_like(HMF_interpolator.Mhtab, -100)
+    x_min = (minMUV - currMUV)/(np.sqrt(2) * sigmaUV)
     xhi_cut = np.fmax(xhi, x_min)
     xlo_cut = np.fmax(xlo, x_min)
 
     weights_unnormalized = (erf(xhi_cut) - erf(xlo_cut)).T/(2.0 * MUVwidths)
-    weights = weights_unnormalized/ (0.5*(1-erf(x_min)))[:,None] # Renormalize distributions based on the portion cut off by min_MUV
+    weights = weights_unnormalized/ (0.5*(1-erf(x_min)))[:,None] # Renormalize distributions based on the portion cut off by minMUV
 
     if RETURNWEIGHTS:
         return weights
