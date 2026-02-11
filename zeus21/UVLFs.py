@@ -81,7 +81,7 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
     xhi = np.subtract.outer(MUVcuthi, currMUV)/(np.sqrt(2) * sigmaUV)
     xlo = np.subtract.outer(MUVcutlo, currMUV )/(np.sqrt(2) * sigmaUV)
 
-    # Cut distributions based on minMUV (user-input, halo mass depenent)
+    # Cut distributions based on minMUV (user-input, halo mass dependent)
     #MUVmin can be set to be MUV_of_SFR(max_SFR, Astro_Parameters._kappaUV), with max_SFR = Mstar/min_t & Mstar = fb*Mh
     if minMUV is None:
         minMUV = np.full_like(HMF_interpolator.Mhtab, -100)
