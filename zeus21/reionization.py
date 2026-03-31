@@ -15,6 +15,7 @@ import numpy as np
 from scipy.integrate import cumulative_trapezoid
 from scipy.interpolate import interp1d
 from scipy.interpolate import RegularGridInterpolator
+from scipy.special import erfc
 from tqdm import trange
 
 
@@ -39,8 +40,8 @@ class BMF:
         self.sigma = np.array([[ClassyCosmo.sigma(r, z) for z in self.zlist] for r in self.Rs]).T#CoeffStructure.sigmaofRtab
         
         self.zr = [self.zlist, np.log(self.Rs)]
-        self.gamma_int = RegularGridInterpolator(self.zr, self.gamma, bounds_error = False, fill_value = np.nan)
-        self.gamma2_int = RegularGridInterpolator(self.zr, self.gamma2, bounds_error = False, fill_value = np.nan)
+        self.gamma_int = RegularGridInterpolator(self.zr, self.gamma, bounds_error = False, fill_value = None)
+        self.gamma2_int = RegularGridInterpolator(self.zr, self.gamma2, bounds_error = False, fill_value = None)
 
         self.sigma_BMF = np.array([[ClassyCosmo.sigma(r, z) for z in self.zlist] for r in self.Rs_BMF]).T
         self.zr_BMF = [self.zlist, np.log(self.Rs_BMF)]
@@ -49,22 +50,22 @@ class BMF:
         self.Hz = cosmology.Hubinvyr(CosmoParams, self.zlist)
         self.trec0 = 1/(constants.alphaB * cosmology.n_H(CosmoParams,0) * AstroParams._clumping) #seconds
         self.trec = self.trec0/(1+self.zlist)**3/constants.yrTos #years
-        self.trec_int = interp1d(self.zlist, self.trec, bounds_error = False, fill_value = np.nan)
+        self.trec_int = interp1d(self.zlist, self.trec, bounds_error = False, fill_value = None)
         
         self.niondot_avg = CoeffStructure.niondot_avg_II
-        self.niondot_avg_int = interp1d(self.zlist, self.niondot_avg, bounds_error = False, fill_value = np.nan)
+        self.niondot_avg_int = interp1d(self.zlist, self.niondot_avg, bounds_error = False, fill_value = None)
 
         self.ion_frac = np.fmin(1, [self.calc_Q(CosmoParams, z) for z in self.zlist])
         self.ion_frac_initial = np.copy(self.ion_frac)
 
         zr_mesh = np.meshgrid(np.arange(len(self.Rs)), np.arange(len(self.zlist)))
         self.nion_norm = self.nion_normalization(zr_mesh[1], zr_mesh[0])
-        self.nion_norm_int = RegularGridInterpolator(self.zr, self.nion_norm, bounds_error = False, fill_value = np.nan)
+        self.nion_norm_int = RegularGridInterpolator(self.zr, self.nion_norm, bounds_error = False, fill_value = None)
 
         self.prebarrier_xHII = np.empty((len(self.ds_array), len(self.zlist), len(self.Rs)))
         self.barrier = self.compute_barrier(CosmoParams, self.ion_frac, self.zlist, self.Rs)
         self.barrier_initial = np.copy(self.barrier)
-        self.barrier_int = RegularGridInterpolator(self.zr, self.barrier, bounds_error = False, fill_value = np.nan)
+        self.barrier_int = RegularGridInterpolator(self.zr, self.barrier, bounds_error = False, fill_value = None)
 
         self.dzr = [self.ds_array, self.zlist, np.log(self.Rs)]
         self.prebarrier_xHII_int = RegularGridInterpolator(self.dzr, self.prebarrier_xHII, bounds_error = False, fill_value = None) #allow extrapolation
@@ -72,9 +73,17 @@ class BMF:
         self.R_linear_sigma_fit_idx = z21_utilities.find_nearest_idx(self.Rs, R_linear_sigma_fit_input)
         self.R_linear_sigma_fit = self.Rs[self.R_linear_sigma_fit_idx]
 
-        self.BMF = np.array([self.VRdn_dR(z, self.Rs_BMF) for z in self.zlist]) #initial bubble mass function
+        #fake bubble mass function to impose peak around R_linear_sigma_fit for the initial linear barriers
+        #looks something like [0, 0, ..., 1, ..., 0, 0]*(number of redshifts)
+        self.BMF = np.repeat([np.eye(len(self.Rs_BMF))[self.R_linear_sigma_fit_idx]], len(self.zlist), axis=0)
+
+        #second computation of BMF using the initial guess peaks
+        self.BMF = np.array([self.VRdn_dR(z, self.Rs_BMF) for z in self.zlist])
         self.BMF_initial = np.copy(self.BMF)
-        self.ion_frac = np.nan_to_num([np.trapezoid(self.BMF[i], np.log(self.Rs_BMF)) for i in range(len(self.zlist))]) #ion_frac by integrating the BMF
+        
+        #self.ion_frac = np.nan_to_num([np.trapezoid(self.BMF[i], np.log(self.Rs_BMF)) for i in range(len(self.zlist))]) #ion_frac by numerically integrating the BMF
+        self.ion_frac = np.nan_to_num([self.analytic_Q(ClassyCosmo, z)[0] for z in self.zlist]) #ion_frac by analytic integral of BMF
+        
         self.ion_frac[self.barrier[:, -1]<=0] = 1
         
         if FLAG_converge:
@@ -274,15 +283,17 @@ class BMF:
 
     #computing linear barrier
     def B_1(self, z):
-        sigmax = self.sigmaR_int(z, self.Rs[self.R_linear_sigma_fit_idx+1])
-        sigmin = self.sigmaR_int(z, self.Rs[self.R_linear_sigma_fit_idx-1])
-        barriermax = self.barrierR_int(z, self.Rs[self.R_linear_sigma_fit_idx+1])
-        barriermin = self.barrierR_int(z, self.Rs[self.R_linear_sigma_fit_idx-1])
+        R_pivot = np.max([0.1, self.BMF_peak_R(z)])
+        sigmax = self.sigmaR_int(z, R_pivot*1.1)
+        sigmin = self.sigmaR_int(z, R_pivot*0.9)
+        barriermax = self.barrierR_int(z, R_pivot*1.1)
+        barriermin = self.barrierR_int(z, R_pivot*0.9)
         return (barriermax - barriermin)/(sigmax**2 - sigmin**2)
         
     def B_0(self, z):
-        sigmin = self.sigmaR_int(z, self.Rs[self.R_linear_sigma_fit_idx-1])
-        barriermin = self.barrierR_int(z, self.Rs[self.R_linear_sigma_fit_idx-1])
+        R_pivot = np.max([0.1, self.BMF_peak_R(z)])
+        sigmin = self.sigmaR_int(z, R_pivot*0.9)
+        barriermin = self.barrierR_int(z, R_pivot*0.9)
         return barriermin - sigmin**2 * self.B_1(z)
     
     def B(self, z, R): 
@@ -305,6 +316,19 @@ class BMF:
     def Rdn_dR(self, z, R):
         return self.VRdn_dR(z, R)*3/(4*np.pi*R**3)
 
+    def BMF_peak_R(self, z):
+        iz = z21_utilities.find_nearest_idx(self.zlist, z)
+        ir = np.argmax(self.BMF[iz])
+        return self.Rs_BMF[ir]
+
+    def analytic_Q(self, ClassyCosmo, z): #analytically integrating the BMF to get Q
+        Rmin = 1e-10 #arbitrarily small
+        B0 = self.B_0(z)
+        B1 = self.B_1(z)
+        sigmin = ClassyCosmo.sigma(Rmin, z)
+        s2 = sigmin**2
+        return 0.5*np.exp(-2*B0*B1)*erfc((B0-B1*s2)/np.sqrt(2*s2)) + 0.5*erfc((B0+B1*s2)/np.sqrt(2*s2))
+
     def converge_BMF(self, CosmoParams, ion_frac_input, max_iter):
         self.ion_frac = ion_frac_input
         iterator = trange(max_iter) if self.PRINT_SUCCESS else range(max_iter)
@@ -312,20 +336,15 @@ class BMF:
             ion_frac_prev = np.copy(self.ion_frac)
             
             self.barrier = self.compute_barrier(CosmoParams, self.ion_frac, self.zlist, self.Rs)
-            self.barrier_int = RegularGridInterpolator(self.zr, self.barrier, bounds_error = False, fill_value = np.nan)
-
-            def barrierR_int(self, z, R):
-                return self.interpR(z, R, self.barrier_int)
-            def barrierz_int(self, z, R):
-                return self.interpz(z, R, self.barrier_int)
+            self.barrier_int = RegularGridInterpolator(self.zr, self.barrier, bounds_error = False, fill_value = None)
             
             self.BMF = np.array([self.VRdn_dR(z, self.Rs_BMF) for z in self.zlist])
-            self.ion_frac = np.nan_to_num([np.trapezoid(self.BMF[i], np.log(self.Rs_BMF)) for i in range(len(self.zlist))])
+            self.ion_frac = np.nan_to_num([self.analytic_Q(ClassyCosmo, z)[0] for z in self.zlist])
             self.ion_frac[self.barrier[:, -1]<=0] = 1
 
-            if np.allclose(ion_frac_prev, self.ion_frac):
+            if np.allclose(ion_frac_prev, self.ion_frac, rtol=1e-1, atol=1e-2):
                 if self.PRINT_SUCCESS:
-                    print(f'SUCCESS: BMF converged in {j} iterations.')
+                    print(f"SUCCESS: BMF converged after {j+1} iteration{'s' if j > 0 else ''}.")
                 return 
             
         print(f"WARNING: BMF didn't converge within {max_iter} iterations.")
@@ -353,9 +372,9 @@ class BMF:
     def sigmaz_int(self, z, R):
         return self.interpz(z, R, self.sigma_int)
 
-    def barrierR_int(self, z, R): #unused
+    def barrierR_int(self, z, R):
         return self.interpR(z, R, self.barrier_int)
-    def barrierz_int(self, z, R): #unused
+    def barrierz_int(self, z, R):
         return self.interpz(z, R, self.barrier_int)
 
     def gammaR_int(self, z, R):
@@ -372,6 +391,7 @@ class BMF:
         return self.interpR(z, R, self.nion_norm_int)
     def nion_normz_int(self, z, R):
         return self.interpz(z, R, self.nion_norm_int)
+
 
     def prebarrier_xHII_int_grid(self, d, z, R):
         """
