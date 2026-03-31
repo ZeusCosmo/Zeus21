@@ -87,7 +87,7 @@ class BMF:
         self.ion_frac[self.barrier[:, -1]<=0] = 1
         
         if FLAG_converge:
-            self.converge_BMF(CosmoParams, self.ion_frac, max_iter=max_iter)
+            self.converge_BMF(CosmoParams, ClassyCosmo, self.ion_frac, max_iter=max_iter)
         #two functions: compute BMF and iterate
         
 
@@ -329,7 +329,7 @@ class BMF:
         s2 = sigmin**2
         return 0.5*np.exp(-2*B0*B1)*erfc((B0-B1*s2)/np.sqrt(2*s2)) + 0.5*erfc((B0+B1*s2)/np.sqrt(2*s2))
 
-    def converge_BMF(self, CosmoParams, ion_frac_input, max_iter):
+    def converge_BMF(self, CosmoParams, ClassyCosmo, ion_frac_input, max_iter):
         self.ion_frac = ion_frac_input
         iterator = trange(max_iter) if self.PRINT_SUCCESS else range(max_iter)
         for j in iterator:
