@@ -10,6 +10,7 @@ import numpy as np
 import powerbox as pbox
 from pyfftw import empty_aligned as empty
 import time
+import gc
 
 def powerboxCtoR(pbobject,mapkin = None):
     'Function to convert a complex field to real 3D (eg density, T21...) on the powerbox notation'
@@ -50,3 +51,8 @@ def v2r(v):
     
 def r2v(r):
     return 4/3 * np.pi * r**3
+
+def delete_class_attributes(class_instance): # delete all attributes of the class instance
+    for attr in list(class_instance.__dict__):    
+        delattr(class_instance, attr)
+    gc.collect()

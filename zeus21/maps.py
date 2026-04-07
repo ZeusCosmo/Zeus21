@@ -10,6 +10,9 @@ UT Austin - March 2026
 from . import cosmology
 from . import constants
 from . import z21_utilities
+from . import inputs
+from . import sfrd
+from . import reionization
 
 import numpy as np
 import powerbox as pbox
@@ -18,6 +21,8 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from pyfftw import empty_aligned as empty
 from tqdm import trange
 import time
+from dataclasses import dataclass
+from collections.abc import Sequence
 
 
 class CoevalMaps:
@@ -187,7 +192,8 @@ class reionization_maps:
                  PRINT_TIMER=True, 
                  LOGNORMAL_DENSITY=False, COMPUTE_DENSITY_AT_ALLZ=False, SPHERIZE=False, 
                  COMPUTE_MASSWEIGHTED=False, lowres_massweighting=1, COMPUTE_PARTIAL_IONIZATIONS=False,
-                 COMPUTE_PARTIAL_AND_MASSWEIGHTED=False, COMPUTE_ZREION=False
+                 COMPUTE_PARTIAL_AND_MASSWEIGHTED=False, COMPUTE_ZREION=False,
+                 input_density=None, input_density_smoothed_allr=None, input_density_allz=None
                 ):
         #Measure time elapsed from start
         self._start_time = time.time()
@@ -226,7 +232,8 @@ class reionization_maps:
         self.COMPUTE_PARTIAL_IONIZATIONS = COMPUTE_PARTIAL_IONIZATIONS
         self.COMPUTE_PARTIAL_AND_MASSWEIGHTED = COMPUTE_PARTIAL_AND_MASSWEIGHTED
         self.COMPUTE_ZREION = COMPUTE_ZREION
-        if self.COMPUTE_MASSWEIGHTED or self.COMPUTE_PARTIAL_IONIZATIONS or self.COMPUTE_PARTIAL_AND_MASSWEIGHTED:
+        #if self.COMPUTE_MASSWEIGHTED or self.COMPUTE_PARTIAL_IONIZATIONS or self.COMPUTE_PARTIAL_AND_MASSWEIGHTED:
+        if self.COMPUTE_MASSWEIGHTED or self.COMPUTE_PARTIAL_AND_MASSWEIGHTED:
             self.COMPUTE_DENSITY_AT_ALLZ = True
 
         ### selecting redshifts and radii from available redshifts
@@ -236,17 +243,42 @@ class reionization_maps:
 
         ### generating the density field at the closest redshift to the lower one inputed
         self.z_of_density = self.z[0]
-        self.density = self.generate_density(ClassyCosmo, CorrFClass)
-        self.density /= self.sigma_correction(ClassyCosmo) #ergodicity correction
+        if input_density is None:
+            self.density = self.generate_density(ClassyCosmo, CorrFClass)
+            self.density /= self.sigma_correction(ClassyCosmo) #ergodicity correction
+        else:
+            if input_density.shape==(self.ncells,self.ncells,self.ncells):
+                self.density = input_density # no np.copy here to reduce live memory
+            else:
+                raise ValueError(f"The input density should have a shape {(self.ncells,self.ncells,self.ncells)}.")
+            if PRINT_TIMER:
+                z21_utilities.print_timer(self._start_time, text_before="input density in ")
 
         ### smoothing the density field
         self._k = self.compute_k()
-        self.density_smoothed_allr = self.smooth_density()
+        if input_density_smoothed_allr is None:
+            self.density_smoothed_allr = self.smooth_density()
+        else:
+            if input_density_smoothed_allr.shape==(len(self.r),self.ncells,self.ncells,self.ncells):
+                self.density_smoothed_allr = input_density_smoothed_allr # no np.copy here to reduce live memory
+            else:
+                raise ValueError(f"The input smooth densities should have a shape {(len(self.r),self.ncells,self.ncells,self.ncells)}.")
+            if PRINT_TIMER:
+                z21_utilities.print_timer(self._start_time, text_before="input smoothed density in ")
 
         ### evolving density
-        self.density_allz = np.empty((len(self.z), self.ncells, self.ncells, self.ncells), dtype=np.float32)
-        if self.COMPUTE_DENSITY_AT_ALLZ:
-            self.generate_density_allz(CosmoParams)
+        if input_density_allz is None:
+            self.density_allz = np.empty((len(self.z), self.ncells, self.ncells, self.ncells), dtype=np.float32)
+            if self.COMPUTE_DENSITY_AT_ALLZ:
+                self.generate_density_allz(CosmoParams)
+        else:
+            if input_density_allz.shape==(len(self.z),self.ncells,self.ncells,self.ncells):
+                self.density_allz = input_density_allz # no np.copy here to reduce live memory
+                self._has_density = True
+            else:
+                raise ValueError(f"The input all-z-densities should have a shape {(len(self.z),self.ncells,self.ncells,self.ncells)}.")
+            if PRINT_TIMER:
+                z21_utilities.print_timer(self._start_time, text_before="input all z densities in ")
 
         ### generating the ionized field, and computing the ionized fraction
         self.barrier = barrier
@@ -406,8 +438,8 @@ class reionization_maps:
         if not self._has_p:
             self.ion_frac_partial = np.empty(len(self.z))
             self.ion_field_partial_allz = np.empty_like(self.ion_field_allz)
-        if not self._has_density:
-            self.generate_density_allz(CosmoParams)
+        #if not self._has_density:
+        #    self.generate_density_allz(CosmoParams)
         sample_d = np.linspace(-5, 5, 51)
 
         if self.PRINT_TIMER:
@@ -507,4 +539,243 @@ class reionization_maps:
             neutfrac[i] = np.sum(self.treion>tvalues[i]) / self.ncells**3
         return 1-neutfrac, tvalues
         
+
+
+
+##### Running reionization_maps multiple times with variations in astrophysics
+# dataclasses for inputing arguments to astro_variations
+@dataclass(frozen=True)
+class AstroParamsConfig:
+    """
+    All arguments of Astro_Parameters that have default values
+    """
+    astromodel: int = 0
+    accretion_model: int = 0
+    alphastar: float = 0.5
+    betastar: float = -0.5
+    epsstar: float = 0.1
+    Mc: float = 3e11
+    dlog10epsstardz: float = 0.0
+    
+    fesc10: float = 0.1
+    alphaesc: float = 0.0
+    L40_xray: float = 3.0
+    E0_xray: float = 500.
+    alpha_xray: float = -1.0
+    Emax_xray_norm: float = 2000
+    _clumping: float = 3
+    
+    Nalpha_lyA_II: float = 9690
+    Nalpha_lyA_III: float = 17900
+    
+    Mturn_fixed: float | None = None
+    FLAG_MTURN_SHARP: bool = False
+    
+    C0dust: float = 4.43
+    C1dust: float = 1.99
+    
+    sigmaUV: float = 0.5
+    
+    USE_POPIII: bool = False
+    
+    alphastar_III: float = 0
+    betastar_III: float = 0
+    fstar_III: float = 10**(-2.5)
+    Mc_III: float = 1e7
+    dlog10epsstardz_III: float = 0.0
+    
+    fesc7_III: float = 10**(-1.35)
+    alphaesc_III: float = -0.3
+    L40_xray_III: float = 3.0
+    alpha_xray_III: float = -1.0
+    
+    USE_LW_FEEDBACK: bool = True
+    A_LW: float = 2.0
+    beta_LW: float = 0.6
+    
+    A_vcb: float = 1.0
+    beta_vcb: float = 1.8,
+
+@dataclass
+class BMFConfig:
+    """
+    All arguments of BMF that have default values.
+    """
+    R_linear_sigma_fit_input: float = 10
+    FLAG_converge: bool = True
+    max_iter: int = 10
+    ZMAX_REION: float = 30
+    Rmin: float = 0.05
+    PRINT_SUCCESS: bool = True
+
+@dataclass
+class ReioMapsConfig:
+    """
+    All arguments of reionization_maps that have default values, 
+    except the input_densities since they are changed dynamically in astro_variations
+    """
+    r_precision: float = 1.
+    Rs: list | np.ndarray | None = None
+    barrier: function = None
+    PRINT_TIMER: bool = True
+    LOGNORMAL_DENSITY: bool = False
+    COMPUTE_DENSITY_AT_ALLZ: bool = False
+    SPHERIZE: bool = False
+    COMPUTE_MASSWEIGHTED: bool = False
+    lowres_massweighting: int = 1
+    COMPUTE_PARTIAL_IONIZATIONS: bool = False
+    COMPUTE_PARTIAL_AND_MASSWEIGHTED: bool = False
+    COMPUTE_ZREION: bool = False
+
+# running class that will do the astro variations
+class astro_variations:
+    """
+    Efficiently rerun the reionization_maps class while varying astrophysical parameters.
+    The efficiency comes from:
+        - making use of the different input density boxes in reionization_maps and not reruning them if multiple models are run.
+        - deleting the instances of the reionization_map class generated at each run after saving the attributes the user wants to keep.
+
+    Parameters
+    ----------
+    UserParams: zeus21.User_Parameters class
+        Stores the user parameters.
+    CosmoParams: zeus21.Cosmo_Parameters class
+        Stores the cosmology.
+    ClassyCosmo: zeus21.runclass class
+        Sets up Class cosmology.
+    HMFintclass: zeus21.HMF_interpolator class
+        Stores the HMF interpolator.
+    CorrFClass: zeus21.Correlations class
+        Stores the correlations.
+    input_boxlength: float
+        Comoving physical side length of the box.
+    ncells: int
+        Number of cells on a side.
+    seed: int
+        Sets the predetermined generation of maps. Default is 1234.
+    AstroParams_configs: sequence of AstroParamsConfig instances
+        Sets the different astro models to run.
+    BMF_quantities_to_save: list of str of the names of BMF attributes
+        Specifiy which quantities to save as attributes in astro_variations. 
+        They will be saved in lists named self.BMF_attr (e.g.: self.BMF_ion_frac).
+        Each element of these lists correspond to the corresponding AstroParams_configs element. 
+    ReioMaps_quantities_to_save: list of str of the names of reionization_maps attributes
+        Specifiy which quantities to save as attributes in astro_variations.
+        They will be saved in lists named self.ReioMaps_attr (e.g.: self.ReioMaps_ion_frac).
+        Each element of these lists correspond to the corresponding AstroParams_configs element. 
+    BMF_config: BMFConfig class
+        Sets up the config for the BMF class. Default is None and corresponds to default BMF arguments.
+    ReioMaps_config: ReioMapsConfig class
+        Sets up the config for the reionization_maps class. Default is None and corresponds to default reionization_maps arguments.
+    ZMIN: float
+        Minimum redshift to which zeus21.get_T21_coefficients will do its integrations. Default is 5.0.
+    input_z: list of float
+        Redshift list over which the reionization maps are made. Default is None, corresponding to zeus21.get_T21_coefficients.zintegral.
+    seed: int
+        Sets the seed used to generate the boxes. Default is 1234.
+
+    Attributes
+    ----------
+    density: 3D np.array
+        Saves the density maps generated in the first run.
+    density_smoothed_allr: 4D np.array
+        Saves the density_smoothed_allr maps generated in the first run.
+    density_allz: 4D np.array
+        Saves the density_allz maps generated in the first run.
+    BMF_... and ReioMaps_...:
+        All attributes from the BMF and reionization_map classes the user wants to save.
+    """
+
+    def __init__(self, UserParams, CosmoParams, ClassyCosmo, HMFintclass, CorrFClass, 
+                 input_boxlength, ncells, 
+                 AstroParams_configs: Sequence[AstroParamsConfig],
+                 BMF_quantities_to_save, ReioMaps_quantities_to_save, 
+                 BMF_config: BMFConfig | None = None,
+                 ReioMaps_config: ReioMapsConfig | None = None,
+                 ZMIN = 5., input_z=None, seed=1234):
+        
+        # zeus21 classes
+        self.UserParams = UserParams
+        self.CosmoParams, self.ClassyCosmo = CosmoParams, ClassyCosmo
+        self.HMFintclass, self.CorrFClass = HMFintclass, CorrFClass
+        self.ZMIN = ZMIN
+        
+        # maps input
+        self.input_z = input_z
+        self.input_boxlength, self.ncells = input_boxlength, ncells
+        self.seed = seed
+        
+        # BMF and reionization_maps arguments
+        self.AstroParams_configs = tuple(AstroParams_configs)
+        self.BMF_config = BMF_config or BMFConfig()
+        self.ReioMaps_config = ReioMaps_config or ReioMapsConfig()
+        
+        # saved density boxes for time and memory efficiency
+        self.density = None
+        self.density_smoothed_allr = None
+        self.density_allz = None
+
+        # initialize physical quantities to save
+        self.BMF_quantities_to_save = BMF_quantities_to_save
+        self.ReioMaps_quantities_to_save = ReioMaps_quantities_to_save
+        for q in BMF_quantities_to_save:
+            if q in vars(reionization.BMF)["__static_attributes__"]:
+                setattr(self, "BMF_"+q, [])
+            else:
+                raise ValueError(f"{q} is not an attribute of the BMF class.")
+        for q in ReioMaps_quantities_to_save:
+            if q in vars(reionization_maps)["__static_attributes__"]:
+                setattr(self, "ReioMaps_"+q, [])
+            else:
+                raise ValueError(f"{q} is not an attribute of the reionization_maps class.")
+
+
+    def run_1model(self, AstroParams_config):
+        AstroParams = inputs.Astro_Parameters(self.UserParams, self.CosmoParams, **vars(AstroParams_config))
+        CoeffStructure = sfrd.get_T21_coefficients(self.UserParams, self.CosmoParams, self.ClassyCosmo, AstroParams, self.HMFintclass, zmin=self.ZMIN)
+    
+        BMF = reionization.BMF(CoeffStructure, self.HMFintclass, self.CosmoParams, AstroParams, self.ClassyCosmo,
+                            **vars(self.BMF_config))
+        
+        if self.input_z is None:
+            self.input_z = CoeffStructure.zintegral
+        
+        reio_maps = reionization_maps(self.CosmoParams, self.ClassyCosmo, self.CorrFClass, CoeffStructure, BMF, self.input_z,
+                                      input_boxlength=self.input_boxlength, ncells=self.ncells, seed=self.seed,
+                                      **vars(self.ReioMaps_config),
+                                      input_density=self.density, 
+                                      input_density_smoothed_allr=self.density_smoothed_allr, 
+                                      input_density_allz=self.density_allz)
+        
+        return BMF, reio_maps
+    
+    
+    def save_quantities(self,BMF,reio_maps):
+        for q in self.BMF_quantities_to_save:
+            getattr(self, "BMF_" + q).append(getattr(BMF, q))
+        for q in self.ReioMaps_quantities_to_save:
+            getattr(self, "ReioMaps_" + q).append(getattr(reio_maps, q))
+
+
+    def run(self):
+        ### run the first model and save the densities for the next ones
+        # run model
+        BMF, reio_maps = self.run_1model(self.AstroParams_configs[0])
+        self.density = reio_maps.density # no need of np.copy here (reducing a bit the memory) since we won't modify the reio_maps.density
+        self.density_smoothed_allr = reio_maps.density_smoothed_allr
+        if reio_maps.COMPUTE_DENSITY_AT_ALLZ:
+            self.density_allz = reio_maps.density_allz
+        # save quantities
+        self.save_quantities(BMF,reio_maps)
+        # deallocate the reio maps class
+        z21_utilities.delete_class_attributes(reio_maps) # deleting reio_maps doesn't mean that self.density will get deleted since self.density is in fact a reference to the array
+
+        ### run all remaining models
+        for AstroParams_config in self.AstroParams_configs[1:]:
+            # run model
+            BMF, reio_maps = self.run_1model(AstroParams_config)
+            # save quantities
+            self.save_quantities(BMF,reio_maps)
+            # deallocate the reoi maps class
+            z21_utilities.delete_class_attributes(reio_maps)
 
