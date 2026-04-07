@@ -23,6 +23,7 @@ from tqdm import trange
 import time
 from dataclasses import dataclass
 from collections.abc import Sequence
+from typing import Callable
 
 
 class CoevalMaps:
@@ -148,7 +149,7 @@ class reionization_maps:
         Sets the predetermined generation of maps. Default is 1234.
     r_precision: float
         Allows to change the steps of the radii for faster computation. Default (and max) is 1, lower values make the computation faster at the cost of accuracy.
-    barrier: function
+    barrier: 2D np.array
         Input density barrier to be used as the threshold for map generation. Takes z value as input and returns np.array of shape. Default is None.
     PRINT_TIMER: bool
         Whether to print the time elapsed along the process. Default is True.
@@ -616,7 +617,7 @@ class ReioMapsConfig:
     """
     r_precision: float = 1.
     Rs: list | np.ndarray | None = None
-    barrier: function = None
+    barrier: np.ndarray = None
     PRINT_TIMER: bool = True
     LOGNORMAL_DENSITY: bool = False
     COMPUTE_DENSITY_AT_ALLZ: bool = False
