@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore", category=UserWarning) #to silence annyoing war
 
 UserParams = zeus21.User_Parameters()
 
-CosmoParams_input = zeus21.Cosmo_Parameters_Input(kmax_CLASS = 10., zmax_CLASS = 10.) #to speed up
+CosmoParams_input = zeus21.Cosmo_Parameters_Input(kmax_CLASS = 500, zmax_CLASS = 10.) #to speed up
 ClassyCosmo = zeus21.runclass(CosmoParams_input)
 CosmoParams = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input, ClassyCosmo)
 

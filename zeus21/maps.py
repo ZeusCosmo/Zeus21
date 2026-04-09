@@ -8,22 +8,20 @@ UT Austin - March 2026
 """
 
 from . import cosmology
-from . import constants
 from . import z21_utilities
 from . import inputs
+from . import correlations
 from . import sfrd
 from . import reionization
+import classy
 
 import numpy as np
 import powerbox as pbox
 from scipy.interpolate import interp1d
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
-from pyfftw import empty_aligned as empty
 from tqdm import trange
 import time
-from dataclasses import dataclass
-from collections.abc import Sequence
-from typing import Callable
+from dataclasses import dataclass, field as _field
 
 
 class CoevalMaps:
@@ -543,9 +541,35 @@ class reionization_maps:
 
 
 
-##### Running reionization_maps multiple times with variations in astrophysics
+##### Wrapper for maps generation
 # dataclasses for inputing arguments to astro_variations
-@dataclass(frozen=True)
+# caveat: if the default are changed in the definition of the classes in zeus21, they will not change here...
+# --> this should be improved later
+@dataclass(kw_only=True)
+class UserParamsConfig:
+    precisionboost: float = 1.0
+    FLAG_FORCE_LINEAR_CF: int = 0
+    MIN_R_NONLINEAR: float = 2.0
+    MAX_R_NONLINEAR: float = 100.0
+    FLAG_DO_DENS_NL: bool = False
+    FLAG_WF_ITERATIVE: bool = True
+
+@dataclass(kw_only=True)
+class CosmoParamsInputConfig:
+    omegab: float = 0.0223828
+    omegac: float = 0.1201075
+    h_fid: float = 0.67810
+    As: float = 2.100549e-09
+    ns: float = 0.9660499
+    tau_fid: float = 0.05430842
+    kmax_CLASS: float = 500.
+    zmax_CLASS: float = 50.
+    zmin_CLASS: float = 5.
+    Flag_emulate_21cmfast: bool = False
+    USE_RELATIVE_VELOCITIES: bool = False
+    HMF_CHOICE: str = "ST"
+
+@dataclass(kw_only=True)
 class AstroParamsConfig:
     """
     All arguments of Astro_Parameters that have default values
@@ -564,7 +588,7 @@ class AstroParamsConfig:
     E0_xray: float = 500.
     alpha_xray: float = -1.0
     Emax_xray_norm: float = 2000
-    _clumping: float = 3
+    clumping: float = 3
     
     Nalpha_lyA_II: float = 9690
     Nalpha_lyA_III: float = 17900
@@ -595,9 +619,16 @@ class AstroParamsConfig:
     beta_LW: float = 0.6
     
     A_vcb: float = 1.0
-    beta_vcb: float = 1.8,
+    beta_vcb: float = 1.8
 
-@dataclass
+@dataclass(kw_only=True)
+class getT21coeffConfig:
+    """
+    All arguments of reionization_maps that have default values
+    """
+    zmin: float = 10.0
+
+@dataclass(kw_only=True)
 class BMFConfig:
     """
     All arguments of BMF that have default values.
@@ -609,12 +640,14 @@ class BMFConfig:
     Rmin: float = 0.05
     PRINT_SUCCESS: bool = True
 
-@dataclass
+@dataclass(kw_only=True)
 class ReioMapsConfig:
     """
-    All arguments of reionization_maps that have default values, 
-    except the input_densities since they are changed dynamically in astro_variations
+    All arguments of reionization_maps that have default values
     """
+    input_boxlength: float = 300.
+    ncells: int = 300
+    seed: int = 1234
     r_precision: float = 1.
     Rs: list | np.ndarray | None = None
     barrier: np.ndarray = None
@@ -627,8 +660,12 @@ class ReioMapsConfig:
     COMPUTE_PARTIAL_IONIZATIONS: bool = False
     COMPUTE_PARTIAL_AND_MASSWEIGHTED: bool = False
     COMPUTE_ZREION: bool = False
+    input_density: np.ndarray | None = None
+    input_density_smoothed_allr: np.ndarray | None = None
+    input_density_allz: np.ndarray | None = None
 
-# running class that will do the astro variations
+# class to run reionization_maps multiple times with variations in astrophysics
+@dataclass(kw_only=True)
 class astro_variations:
     """
     Efficiently rerun the reionization_maps class while varying astrophysical parameters.
@@ -638,145 +675,142 @@ class astro_variations:
 
     Parameters
     ----------
-    UserParams: zeus21.User_Parameters class
-        Stores the user parameters.
-    CosmoParams: zeus21.Cosmo_Parameters class
-        Stores the cosmology.
-    ClassyCosmo: zeus21.runclass class
-        Sets up Class cosmology.
-    HMFintclass: zeus21.HMF_interpolator class
-        Stores the HMF interpolator.
-    CorrFClass: zeus21.Correlations class
-        Stores the correlations.
-    input_boxlength: float
-        Comoving physical side length of the box.
-    ncells: int
-        Number of cells on a side.
-    seed: int
-        Sets the predetermined generation of maps. Default is 1234.
     AstroParams_configs: sequence of AstroParamsConfig instances
         Sets the different astro models to run.
     BMF_quantities_to_save: list of str of the names of BMF attributes
         Specifiy which quantities to save as attributes in astro_variations. 
-        They will be saved in lists named self.BMF_attr (e.g.: self.BMF_ion_frac).
+        They will be saved in lists in a dict named self.BMF_quantities.
         Each element of these lists correspond to the corresponding AstroParams_configs element. 
     ReioMaps_quantities_to_save: list of str of the names of reionization_maps attributes
         Specifiy which quantities to save as attributes in astro_variations.
-        They will be saved in lists named self.ReioMaps_attr (e.g.: self.ReioMaps_ion_frac).
+        They will be saved in lists named self.ReioMaps_quantities.
         Each element of these lists correspond to the corresponding AstroParams_configs element. 
+    input_z: list of float
+        Redshift list over which the reionization maps are made. Default is None, corresponding to zeus21.get_T21_coefficients.zintegral.
+    UserParams_config: UserParamsConfig class
+        Sets up the config for the User_Parameters class. Default is None and corresponds to default User_Parameters arguments.
+    CosmoParamsInput_config: CosmoParamsInputConfig class
+        Sets up the config for the Cosmo_Parameters_Input class. Default is None and corresponds to default Cosmo_Parameters_Input arguments.
+    getT21coeff_config: getT21coeffConfig class
+        Sets up the config for the get_T21_coefficients class. Default is None and corresponds to default get_T21_coefficients arguments.
     BMF_config: BMFConfig class
         Sets up the config for the BMF class. Default is None and corresponds to default BMF arguments.
     ReioMaps_config: ReioMapsConfig class
         Sets up the config for the reionization_maps class. Default is None and corresponds to default reionization_maps arguments.
-    ZMIN: float
-        Minimum redshift to which zeus21.get_T21_coefficients will do its integrations. Default is 5.0.
-    input_z: list of float
-        Redshift list over which the reionization maps are made. Default is None, corresponding to zeus21.get_T21_coefficients.zintegral.
-    seed: int
-        Sets the seed used to generate the boxes. Default is 1234.
 
     Attributes
     ----------
-    density: 3D np.array
-        Saves the density maps generated in the first run.
-    density_smoothed_allr: 4D np.array
-        Saves the density_smoothed_allr maps generated in the first run.
-    density_allz: 4D np.array
-        Saves the density_allz maps generated in the first run.
-    BMF_... and ReioMaps_...:
-        All attributes from the BMF and reionization_map classes the user wants to save.
+    BMF_quantities:
+        dict containing all the quantities the user wants to save from the BMF class.
+        Each quantity has the same name in the dict than in the class and is a list, of which
+        each element is the output of zeus21 for the given astro model.
+    ReioMaps_quantities:
+        dict containing all the quantities the user wants to save from the reionization_map class.
+        Each quantity has the same name in the dict than in the class and is a list, of which
+        each element is the output of zeus21 for the given astro model.
+    UserParams: User_Parameters 
+        Stores the user parameters.
+    CosmoParams_input: Cosmo_Parameters_Input
+        Stores the input for cosmology.
+    CosmoParams: Cosmo_Parameters
+        Stores the cosmology.
+    ClassyCosmo: classy.Class
+        Stores the Classy cosmology.
+    CorrFClass: Correlations
+        Stores the correlations.
+    HMFintclass: HMF_interpolator
+        Stores the HMF interpolator.
     """
+    # arguments with no default: what astrophysics and which quantities to save from BMF and reionization_maps
+    AstroParams_configs: list[AstroParamsConfig]
+    BMF_quantities_to_save: list[str] 
+    ReioMaps_quantities_to_save: list[str]
 
-    def __init__(self, UserParams, CosmoParams, ClassyCosmo, HMFintclass, CorrFClass, 
-                 input_boxlength, ncells, 
-                 AstroParams_configs: Sequence[AstroParamsConfig],
-                 BMF_quantities_to_save, ReioMaps_quantities_to_save, 
-                 BMF_config: BMFConfig | None = None,
-                 ReioMaps_config: ReioMapsConfig | None = None,
-                 ZMIN = 5., input_z=None, seed=1234):
-        
-        # zeus21 classes
-        self.UserParams = UserParams
-        self.CosmoParams, self.ClassyCosmo = CosmoParams, ClassyCosmo
-        self.HMFintclass, self.CorrFClass = HMFintclass, CorrFClass
-        self.ZMIN = ZMIN
-        
-        # maps input
-        self.input_z = input_z
-        self.input_boxlength, self.ncells = input_boxlength, ncells
-        self.seed = seed
-        
-        # BMF and reionization_maps arguments
-        self.AstroParams_configs = tuple(AstroParams_configs)
-        self.BMF_config = BMF_config or BMFConfig()
-        self.ReioMaps_config = ReioMaps_config or ReioMapsConfig()
-        
-        # saved density boxes for time and memory efficiency
-        self.density = None
-        self.density_smoothed_allr = None
-        self.density_allz = None
+    # maps input
+    input_z: list | None = _field(default=None)
 
-        # initialize physical quantities to save
-        self.BMF_quantities_to_save = BMF_quantities_to_save
-        self.ReioMaps_quantities_to_save = ReioMaps_quantities_to_save
-        for q in BMF_quantities_to_save:
+    # zeus21 configuration
+    UserParams_config: UserParamsConfig = _field(default_factory=UserParamsConfig)
+    CosmoParamsInput_config: CosmoParamsInputConfig = _field(default_factory=CosmoParamsInputConfig)
+    getT21coeff_config: getT21coeffConfig = _field(default_factory=getT21coeffConfig)
+    BMF_config: BMFConfig = _field(default_factory=BMFConfig)
+    ReioMaps_config: ReioMapsConfig = _field(default_factory=ReioMapsConfig)
+
+    # initialize quantities dict and zeus21
+    BMF_quantities: dict[str, list] = _field(init=False)
+    ReioMaps_quantities: dict[str, list] = _field(init=False)
+    UserParams: inputs.User_Parameters = _field(init=False)
+    CosmoParams_input: inputs.Cosmo_Parameters_Input = _field(init=False)
+    CosmoParams: inputs.Cosmo_Parameters = _field(init=False)
+    ClassyCosmo: classy.Class = _field(init=False)
+    CorrFClass: correlations.Correlations = _field(init=False)
+    HMFintclass: cosmology.HMF_interpolator = _field(init=False)
+
+    def __post_init__(self):
+        # initialize BMF quantities to save
+        self.BMF_quantities = {}
+        for q in self.BMF_quantities_to_save:
             if q in vars(reionization.BMF)["__static_attributes__"]:
-                setattr(self, "BMF_"+q, [])
+                self.BMF_quantities[q] = []
             else:
                 raise ValueError(f"{q} is not an attribute of the BMF class.")
-        for q in ReioMaps_quantities_to_save:
+        
+        # initialize reionization_maps quantities to save
+        self.ReioMaps_quantities = {}
+        for q in self.ReioMaps_quantities_to_save:
             if q in vars(reionization_maps)["__static_attributes__"]:
-                setattr(self, "ReioMaps_"+q, [])
+                self.ReioMaps_quantities[q] = []
             else:
-                raise ValueError(f"{q} is not an attribute of the reionization_maps class.")
+                raise ValueError(f"{q} is not an attribute of the reionization_maps class.")     
+
+        # initialize zeus21
+        self.UserParams = inputs.User_Parameters(**vars(self.UserParams_config))
+        self.CosmoParams_input = inputs.Cosmo_Parameters_Input(**vars(self.CosmoParamsInput_config)) 
+        self.CosmoParams, self.ClassyCosmo, self.CorrFClass , self.HMFintclass =  cosmology.cosmo_wrapper(self.UserParams, self.CosmoParams_input)
 
 
     def run_1model(self, AstroParams_config):
         AstroParams = inputs.Astro_Parameters(self.UserParams, self.CosmoParams, **vars(AstroParams_config))
-        CoeffStructure = sfrd.get_T21_coefficients(self.UserParams, self.CosmoParams, self.ClassyCosmo, AstroParams, self.HMFintclass, zmin=self.ZMIN)
-    
-        BMF = reionization.BMF(CoeffStructure, self.HMFintclass, self.CosmoParams, AstroParams, self.ClassyCosmo,
-                            **vars(self.BMF_config))
-        
+        CoeffStructure = sfrd.get_T21_coefficients(self.UserParams, self.CosmoParams, self.ClassyCosmo, AstroParams, self.HMFintclass, 
+                                                   **vars(self.getT21coeff_config))
         if self.input_z is None:
             self.input_z = CoeffStructure.zintegral
+    
+        bmf = reionization.BMF(CoeffStructure, self.HMFintclass, self.CosmoParams, AstroParams, self.ClassyCosmo, 
+                               **vars(self.BMF_config))
         
-        reio_maps = reionization_maps(self.CosmoParams, self.ClassyCosmo, self.CorrFClass, CoeffStructure, BMF, self.input_z,
-                                      input_boxlength=self.input_boxlength, ncells=self.ncells, seed=self.seed,
-                                      **vars(self.ReioMaps_config),
-                                      input_density=self.density, 
-                                      input_density_smoothed_allr=self.density_smoothed_allr, 
-                                      input_density_allz=self.density_allz)
+        reio_maps = reionization_maps(self.CosmoParams, self.ClassyCosmo, self.CorrFClass, CoeffStructure, bmf, self.input_z, 
+                                      **vars(self.ReioMaps_config))
         
-        return BMF, reio_maps
+        return bmf, reio_maps
     
     
-    def save_quantities(self,BMF,reio_maps):
+    def save_quantities(self,bmf,reio_maps):
         for q in self.BMF_quantities_to_save:
-            getattr(self, "BMF_" + q).append(getattr(BMF, q))
+            self.BMF_quantities[q].append(getattr(bmf, q))
         for q in self.ReioMaps_quantities_to_save:
-            getattr(self, "ReioMaps_" + q).append(getattr(reio_maps, q))
+            self.ReioMaps_quantities[q].append(getattr(reio_maps, q))
 
 
     def run(self):
         ### run the first model and save the densities for the next ones
         # run model
-        BMF, reio_maps = self.run_1model(self.AstroParams_configs[0])
-        self.density = reio_maps.density # no need of np.copy here (reducing a bit the memory) since we won't modify the reio_maps.density
-        self.density_smoothed_allr = reio_maps.density_smoothed_allr
+        bmf, reio_maps = self.run_1model(self.AstroParams_configs[0])
+        self.ReioMaps_config.input_density = reio_maps.density # no need of np.copy here (reducing a bit the memory) since we won't modify the reio_maps.density
+        self.ReioMaps_config.input_density_smoothed_allr = reio_maps.density_smoothed_allr
         if reio_maps.COMPUTE_DENSITY_AT_ALLZ:
-            self.density_allz = reio_maps.density_allz
+            self.ReioMaps_config.input_density_allz = reio_maps.density_allz
         # save quantities
-        self.save_quantities(BMF,reio_maps)
+        self.save_quantities(bmf,reio_maps)
         # deallocate the reio maps class
         z21_utilities.delete_class_attributes(reio_maps) # deleting reio_maps doesn't mean that self.density will get deleted since self.density is in fact a reference to the array
 
         ### run all remaining models
         for AstroParams_config in self.AstroParams_configs[1:]:
             # run model
-            BMF, reio_maps = self.run_1model(AstroParams_config)
+            bmf, reio_maps = self.run_1model(AstroParams_config)
             # save quantities
-            self.save_quantities(BMF,reio_maps)
+            self.save_quantities(bmf,reio_maps)
             # deallocate the reoi maps class
             z21_utilities.delete_class_attributes(reio_maps)
 

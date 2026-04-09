@@ -27,8 +27,8 @@ def cosmo_wrapper(User_Parameters, Cosmo_Parameters_Input):
     Cosmo_Parameters, Class_Cosmo, Correlations, HMF_interpolator
     """
 
-    ClassCosmo = Class()
-    ClassCosmo.compute()
+    #ClassCosmo = Class()
+    #ClassCosmo.compute()
 
     ClassyCosmo = runclass(Cosmo_Parameters_Input)
     CosmoParams = Cosmo_Parameters(User_Parameters, Cosmo_Parameters_Input, ClassyCosmo) 
