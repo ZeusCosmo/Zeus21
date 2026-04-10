@@ -36,7 +36,7 @@ class User_Parameters:
         0 to do standard calculation, 1 to force linearization of correlation function.
     MIN_R_NONLINEAR: float
         Minimum radius R/cMpc in which we start doing the nonlinear calculation. 
-        Below ~1 it will blow up because sigma > 1 eventually, and our exp(\delta) approximation breaks. 
+        Below ~1 it will blow up because sigma > 1 eventually, and our exp(delta) approximation breaks. 
         Check if you play with it and if you change Window().
     MAX_R_NONLINEAR: float
         Maximum radius R/cMpc in which we start doing the nonlinear calculation (above this it is very linear)
@@ -179,7 +179,7 @@ class Cosmo_Parameters:
 
 
         #and define the shells that we integrate over at each z.
-        self.Rsmmin = 0.5
+        self.Rsmmin = 0.05
         self.Rsmmax = 2000.
 
         if(self.Flag_emulate_21cmfast==True):
@@ -234,6 +234,7 @@ class Astro_Parameters:
                     E0_xray = 500.,
                     alpha_xray = -1.0,
                     Emax_xray_norm=2000,
+                    clumping = 3.0,
 
                     Nalpha_lyA_II = 9690,
                     Nalpha_lyA_III = 17900,
@@ -334,9 +335,11 @@ class Astro_Parameters:
         #fesc(M) parameter. Power law normalized (fesc10) at M=1e10 Msun with index alphaesc
         self.fesc10 = fesc10
         self.alphaesc = alphaesc
-        self._clumping = 3.0 #clumping factor, z-independent and fixed for now
+        self._clumping = clumping #clumping factor, z-independent and fixed for now
         if(Cosmo_Parameters.Flag_emulate_21cmfast==True):
             self._clumping = 2.0 #this is the 21cmFAST value
+            if clumping != 3.0:
+                self._clumping = clumping
 
 
 

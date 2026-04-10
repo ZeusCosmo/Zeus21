@@ -20,5 +20,8 @@ setup(
            "classy",
            "numexpr",
            "astropy",
+           "powerbox",
+           "pyfftw",
+           "tqdm"
        ],
 )

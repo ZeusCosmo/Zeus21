@@ -4,7 +4,9 @@ scipy
 mcfit
 numexpr
 astropy
-powerbox
+tqdm
+matplotlib
 pyfftw
+powerbox
 sphinx
 myst_parser

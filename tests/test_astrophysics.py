@@ -15,6 +15,7 @@ import numpy as np
 
 from zeus21.sfrd import *
 from zeus21.correlations import *
+from zeus21.reionization import *
 
 UserParams = zeus21.User_Parameters()
 
@@ -40,6 +41,9 @@ CosmoParams_input_21cmfast = zeus21.Cosmo_Parameters_Input(Flag_emulate_21cmfast
 ClassyCosmo_21cmfast = zeus21.runclass(CosmoParams_input_21cmfast)
 CosmoParams_21cmfast = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input_21cmfast, ClassyCosmo_21cmfast)
 AstroParams_21cmfast = zeus21.Astro_Parameters(UserParams,CosmoParams_21cmfast, astromodel = 1)
+
+#and for bubbles:
+BMF_class = zeus21.BMF(Coeffs, HMFintclass, CosmoParams, AstroParams, ClassyCosmo)
 
 
 ztest = 20.
@@ -127,6 +131,9 @@ def test_background():
 
 
     assert( (Coeffs.gamma_index2D >= 0.0).all()) #effective biases have to be larger than 0 in reasonable models, since galaxies live in haloes that are more clustered than average matter (in other words, SFRD grows monotonically with density)
+
+    assert( ((BMF_class.ion_frac >= 0.0)*(BMF_class.ion_frac <= 1.0) ).all())
+    assert( (BMF_class.BMF >= 0.0).all())
 
 
 
