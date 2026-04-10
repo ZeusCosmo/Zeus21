@@ -749,19 +749,27 @@ class astro_variations:
     def __post_init__(self):
         # initialize BMF quantities to save
         self.BMF_quantities = {}
-        for q in self.BMF_quantities_to_save:
-            if q in getattr(reionization.BMF, "__static_attributes__"):
-                self.BMF_quantities[q] = []
-            else:
-                raise ValueError(f"{q} is not an attribute of the BMF class.")
+        __static_attributes__ = getattr(reionization.BMF, "__static_attributes__", None)
+        if __static_attributes__ is None:
+            print(f"Warning: cannot check whether BMF_quantities are attributes of the BMF class: errors could show up after generating the boxes.")
+        else:
+            for q in self.BMF_quantities_to_save:
+                if q in __static_attributes__:
+                    self.BMF_quantities[q] = []
+                else:
+                    raise ValueError(f"{q} is not an attribute of the BMF class.")
         
         # initialize reionization_maps quantities to save
         self.ReioMaps_quantities = {}
-        for q in self.ReioMaps_quantities_to_save:
-            if q in getattr(reionization_maps, "__static_attributes__"):
-                self.ReioMaps_quantities[q] = []
-            else:
-                raise ValueError(f"{q} is not an attribute of the reionization_maps class.")     
+        __static_attributes__ = getattr(reionization_maps, "__static_attributes__", None)
+        if __static_attributes__ is None:
+            print(f"Warning: cannot check whether ReioMaps_quantities are attributes of the reionization_maps class: errors could show up after generating the boxes.")
+        else:
+            for q in self.ReioMaps_quantities_to_save:
+                if q in __static_attributes__:
+                    self.ReioMaps_quantities[q] = []
+                else:
+                    raise ValueError(f"{q} is not an attribute of the reionization_maps class.")     
 
         # initialize zeus21
         self.UserParams = inputs.User_Parameters(**vars(self.UserParams_config))
