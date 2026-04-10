@@ -750,7 +750,7 @@ class astro_variations:
         # initialize BMF quantities to save
         self.BMF_quantities = {}
         for q in self.BMF_quantities_to_save:
-            if q in vars(reionization.BMF)["__static_attributes__"]:
+            if q in getattr(reionization.BMF, "__static_attributes__"):
                 self.BMF_quantities[q] = []
             else:
                 raise ValueError(f"{q} is not an attribute of the BMF class.")
@@ -758,7 +758,7 @@ class astro_variations:
         # initialize reionization_maps quantities to save
         self.ReioMaps_quantities = {}
         for q in self.ReioMaps_quantities_to_save:
-            if q in vars(reionization_maps)["__static_attributes__"]:
+            if q in getattr(reionization_maps, "__static_attributes__"):
                 self.ReioMaps_quantities[q] = []
             else:
                 raise ValueError(f"{q} is not an attribute of the reionization_maps class.")     
