@@ -9,7 +9,7 @@ Edited by Hector Afonso G. Cruz
 JHU - July 2024
 
 Edited by Emily Bregou
-UT Austin - March 2026
+UT Austin - April 2026
 """
 
 from . import cosmology
@@ -792,6 +792,7 @@ def dMh_dt(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, massVector, z):
     Mh = massVector
     
     if(Astro_Parameters.astromodel == False): #GALLUMI-like
+
         if(Astro_Parameters.accretion_model == 'Exp'): #exponential accretion
             dMhdz = massVector * constants.ALPHA_accretion_exponential
             Mhdot = dMhdz*cosmology.Hubinvyr(Cosmo_Parameters,z)*(1.0+z)
