@@ -7,6 +7,9 @@ UT Austin and Harvard CfA - January 2023
 
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
+
+Edited by Emily Bregou
+UT Austin - March 2026
 """
 
 from . import constants
@@ -220,8 +223,9 @@ class Astro_Parameters:
 
     def __init__(self, UserParams, Cosmo_Parameters, 
                     astromodel = 0,
-                    accretion_model = 0,
-
+                    accretion_model = 'Exp', # Options are exponential (Exp), extended Press-Schechter (EPS), 
+                                             # or a fitting function from Nbody simulations (RP16)
+                                             
                     alphastar = 0.5,
                     betastar = -0.5,
                     epsstar = 0.1,
@@ -324,7 +328,7 @@ class Astro_Parameters:
         self.fstarmax = 1.0 #where we cap it
         
         if self.astromodel == 0: #GALUMI-like
-            self.accretion_model = accretion_model #0 = exponential, 1= EPS #choose the accretion model. Default = EPS
+            self.accretion_model = accretion_model #choose the accretion model. Default = Exp. Exp = exponential, EPS = extended Press-Schechter, Yung = Yung+24 fitting function 
         elif self.astromodel == 1: #21cmfast-like, ignores Mc and beta and has a t* later in SFR()
             self.tstar = 0.5
             self.fstar10 = self.epsstar

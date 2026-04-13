@@ -9,7 +9,7 @@ Edited by Hector Afonso G. Cruz
 JHU - July 2024
 
 Edited by Emily Bregou
-UT Austin - October 2025
+UT Austin - March 2026
 """
 
 from . import cosmology
@@ -792,10 +792,11 @@ def dMh_dt(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, massVector, z):
     Mh = massVector
     
     if(Astro_Parameters.astromodel == False): #GALLUMI-like
-        if(Astro_Parameters.accretion_model == False): #exponential accretion
+        if(Astro_Parameters.accretion_model == 'Exp'): #exponential accretion
             dMhdz = massVector * constants.ALPHA_accretion_exponential
+            Mhdot = dMhdz*cosmology.Hubinvyr(Cosmo_Parameters,z)*(1.0+z)
             
-        elif(Astro_Parameters.accretion_model == True): #EPS accretion
+        elif(Astro_Parameters.accretion_model == 'EPS'): #EPS accretion
             
             Mh2 = Mh * constants.EPSQ_accretion
             indexMh2low = Mh2 < Mh.flatten()[0]
@@ -809,10 +810,21 @@ def dMh_dt(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, massVector, z):
             dzgrow = z*0.01
             dgrowthdz = (cosmology.growth(Cosmo_Parameters,z+dzgrow) - cosmology.growth(Cosmo_Parameters,z-dzgrow))/(2.0 * dzgrow)
             dMhdz = - Mh * np.sqrt(2/np.pi)/np.sqrt(sigmaMh2**2 - sigmaMh**2) *dgrowthdz/growth * Cosmo_Parameters.delta_crit_ST
+
+            Mhdot = dMhdz*cosmology.Hubinvyr(Cosmo_Parameters,z)*(1.0+z)
+
+        elif(Astro_Parameters.accretion_model == 'RP16'): # Fitting function to Rodríguez-Puebla+16 N-body simulations (eq. 11, dynamically 
+                                                        # averaged parameters from table 2)
+            a = (1+z)**-1
+            beta = 10**(2.73-(1.828*a)+(0.654*a**2))
+            alpha = 1 + (0.329*a) - (0.206*a**2)
+
+            # factors of h are accounted for to give units of M_sun/year for halo masses in units of M_sun:
+            Mhdot = beta * (Mh/1e12)**alpha * cosmology.Hub(Cosmo_Parameters, z) / (100*Cosmo_Parameters.h_fid)
             
         else:
             print("ERROR! Have to choose an accretion model in Astro_Parameters (accretion_model)")
-        Mhdot = dMhdz*cosmology.Hubinvyr(Cosmo_Parameters,z)*(1.0+z)
+        
         return Mhdot
 
     elif(Astro_Parameters.astromodel == True): #21cmfast-like
