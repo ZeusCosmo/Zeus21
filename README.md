@@ -49,6 +49,27 @@ python setup.py install --user
 
 (modifying the Makefile to your `gcc` as needed)
 
+### Multiprocessing
+
+Zeus21 now includes built-in process-level caching for CLASS cosmology objects. When running many simulations in parallel, each worker process will only initialize CLASS once and reuse the cached object for subsequent calls. This provides a significant speedup for large-scale inference or Monte-Carlo sampling.
+
+Because CLASS uses C-global state, **always use `spawn` (not `fork`)** when creating a multiprocessing pool:
+
+```python
+import multiprocessing as mp
+import zeus21
+
+ctx = mp.get_context("spawn")
+with ctx.Pool(processes=4) as pool:
+    pool.map(my_zeus21_worker, params_list)
+```
+
+See `examples/benchmark_multiprocess.py` for a runnable before/after benchmark.
+
+### NumPy 2.0 Compatibility
+
+Zeus21 is now compatible with NumPy 2.0+. All deprecated `np.trapz` calls have been replaced with `np.trapezoid`.
+
 ## Citation
 
 If you find this code useful please cite:

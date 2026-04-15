@@ -11,6 +11,7 @@ JHU - July 2024
 """
 
 import numpy as np
+import os
 from classy import Class
 from scipy.interpolate import RegularGridInterpolator
 from scipy.interpolate import interp1d
@@ -20,6 +21,10 @@ import mcfit
 from . import constants
 from .inputs import Cosmo_Parameters, Cosmo_Parameters_Input
 from .correlations import Correlations
+
+# Process-level cache for CLASS cosmology objects. Keyed by cosmological parameters
+# and os.getpid() so that each spawned worker only initializes CLASS once.
+_COSMO_CACHE = {}
 
 def cosmo_wrapper(User_Parameters, Cosmo_Parameters_Input):
     """
@@ -41,6 +46,17 @@ def cosmo_wrapper(User_Parameters, Cosmo_Parameters_Input):
 
 def runclass(CosmologyIn):
     "Set up CLASS cosmology. Takes CosmologyIn class input and returns CLASS Cosmology object"
+    cache_key = (
+        CosmologyIn.omegab, CosmologyIn.omegac, CosmologyIn.h_fid,
+        CosmologyIn.As, CosmologyIn.ns, CosmologyIn.tau_fid,
+        CosmologyIn.kmax_CLASS, CosmologyIn.zmax_CLASS,
+        CosmologyIn.zmin_CLASS, CosmologyIn.Flag_emulate_21cmfast,
+        CosmologyIn.USE_RELATIVE_VELOCITIES, CosmologyIn.HMF_CHOICE,
+        os.getpid(),
+    )
+    if cache_key in _COSMO_CACHE:
+        return _COSMO_CACHE[cache_key]
+
     ClassCosmo = Class()
     ClassCosmo.set({'omega_b': CosmologyIn.omegab,'omega_cdm': CosmologyIn.omegac,
                     'h': CosmologyIn.h_fid,'A_s': CosmologyIn.As,'n_s': CosmologyIn.ns,'tau_reio': CosmologyIn.tau_fid})
@@ -112,7 +128,8 @@ def runclass(CosmologyIn):
     else:
         ClassCosmo.pars['v_avg'] = 0.0
         ClassCosmo.pars['sigma_vcb'] = 1.0 #Avoids excess computation, but doesn't matter what value we set it to because the flag in inputs.py sets all feedback parameters to zero
-    
+
+    _COSMO_CACHE[cache_key] = ClassCosmo
     return ClassCosmo
 
 def Hub(Cosmo_Parameters, z):
