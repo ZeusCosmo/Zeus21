@@ -11,6 +11,7 @@ JHU - July 2024
 """
 
 import numpy as np
+import os
 from classy import Class
 from scipy.interpolate import RegularGridInterpolator
 from scipy.interpolate import interp1d
@@ -20,6 +21,10 @@ import mcfit
 from . import constants
 from .inputs import Cosmo_Parameters, Cosmo_Parameters_Input
 from .correlations import Correlations
+
+# Process-level cache for CLASS cosmology objects. Keyed by cosmological parameters
+# and os.getpid() so that each spawned worker only initializes CLASS once.
+_COSMO_CACHE = {}
 
 def cosmo_wrapper(User_Parameters, Cosmo_Parameters_Input):
     """
@@ -41,6 +46,17 @@ def cosmo_wrapper(User_Parameters, Cosmo_Parameters_Input):
 
 def runclass(CosmologyIn):
     "Set up CLASS cosmology. Takes CosmologyIn class input and returns CLASS Cosmology object"
+    cache_key = (
+        CosmologyIn.omegab, CosmologyIn.omegac, CosmologyIn.h_fid,
+        CosmologyIn.As, CosmologyIn.ns, CosmologyIn.tau_fid,
+        CosmologyIn.kmax_CLASS, CosmologyIn.zmax_CLASS,
+        CosmologyIn.zmin_CLASS, CosmologyIn.Flag_emulate_21cmfast,
+        CosmologyIn.USE_RELATIVE_VELOCITIES, CosmologyIn.HMF_CHOICE,
+        os.getpid(),
+    )
+    if cache_key in _COSMO_CACHE:
+        return _COSMO_CACHE[cache_key]
+
     ClassCosmo = Class()
     ClassCosmo.set({'omega_b': CosmologyIn.omegab,'omega_cdm': CosmologyIn.omegac,
                     'h': CosmologyIn.h_fid,'A_s': CosmologyIn.As,'n_s': CosmologyIn.ns,'tau_reio': CosmologyIn.tau_fid})
@@ -75,13 +91,13 @@ def runclass(CosmologyIn):
         theta_b = velTransFunc['t_b']
         theta_c = velTransFunc['t_cdm']
 
-        sigma_vcb = np.sqrt(np.trapz(CosmologyIn.As * (kVel/0.05)**(CosmologyIn.ns-1) /kVel * (theta_b - theta_c)**2/kVel**2, kVel)) * constants.c_kms
+        sigma_vcb = np.sqrt(np.trapezoid(CosmologyIn.As * (kVel/0.05)**(CosmologyIn.ns-1) /kVel * (theta_b - theta_c)**2/kVel**2, kVel)) * constants.c_kms
         ClassCosmo.pars['sigma_vcb'] = sigma_vcb
         
         ###HAC: now computing average velocity assuming a Maxwell-Boltzmann distribution of velocities
         velArr = np.geomspace(0.01, constants.c_kms, 1000) #in km/s
         vavgIntegrand = (3 / (2 * np.pi * sigma_vcb**2))**(3/2) * 4 * np.pi * velArr**2 * np.exp(-3 * velArr**2 / (2 * sigma_vcb**2))
-        ClassCosmo.pars['v_avg'] = np.trapz(vavgIntegrand * velArr, velArr)
+        ClassCosmo.pars['v_avg'] = np.trapezoid(vavgIntegrand * velArr, velArr)
         
         ###HAC: Computing Vcb Power Spectrum
         ClassCosmo.pars['k_vcb'] = kVel
@@ -99,8 +115,8 @@ def runclass(CosmologyIn):
         j0bessel = lambda x: np.sin(x)/x
         j2bessel = lambda x: (3 / x**2 - 1) * np.sin(x)/x - 3*np.cos(x)/x**2
         
-        psi0 = 1 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapz(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j0bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
-        psi2 = -2 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapz(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j2bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
+        psi0 = 1 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapezoid(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j0bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
+        psi2 = -2 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapezoid(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j2bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
         
         k_eta, P_eta = mcfit.xi2P(rVelIntp, l=0, lowring = True)((6 * psi0**2 + 3 * psi2**2), extrap = False)
         
@@ -112,7 +128,8 @@ def runclass(CosmologyIn):
     else:
         ClassCosmo.pars['v_avg'] = 0.0
         ClassCosmo.pars['sigma_vcb'] = 1.0 #Avoids excess computation, but doesn't matter what value we set it to because the flag in inputs.py sets all feedback parameters to zero
-    
+
+    _COSMO_CACHE[cache_key] = ClassCosmo
     return ClassCosmo
 
 def Hub(Cosmo_Parameters, z):
