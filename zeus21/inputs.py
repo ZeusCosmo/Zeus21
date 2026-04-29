@@ -413,7 +413,12 @@ class Astro_Parameters:
                 if Cosmo_Parameters.Flag_emulate_21cmfast:
                     print('Quadratic SFRD not yet implemented when Flag_emulate_21cmfast = True; the code will use quadratic_SFRD_lognormal = False')
                 self.quadratic_SFRD_lognormal = False
-                
+
+        if min_t_formation_Myr is not None:
+            if (not np.isscalar(min_t_formation_Myr)
+                    or not np.isfinite(min_t_formation_Myr)
+                    or min_t_formation_Myr <= 0):
+                raise ValueError("min_t_formation_Myr must be None or a strictly positive finite number.")
         self.min_t_formation_Myr = min_t_formation_Myr #Minimum formation time of galaxies in Myr for UVLF, sets a minimum M*dot = M*/t_formation with fstar = 1
 
 
