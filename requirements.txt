@@ -1,5 +1,5 @@
 pytest
-numpy
+numpy>=2.0
 scipy
 mcfit
 numexpr

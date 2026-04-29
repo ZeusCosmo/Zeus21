@@ -138,14 +138,14 @@ class get_T21_coefficients:
         zSFRD, mArray = np.meshgrid(zSFRDflat, HMF_interpolator.Mhtab, indexing = 'ij', sparse = True)
 
         J21LW_interp = interpolate.interp1d(zSFRDflat, np.zeros_like(zSFRDflat), kind = 'linear', bounds_error = False, fill_value = 0,) #no LW background. Controls only Mmol() function, NOT the individual Pop II and III LW background
-        SFRD_II_avg = np.trapz(SFRD_II_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, zSFRD, zSFRD), HMF_interpolator.logtabMh, axis = 1) #never changes with J_LW
+        SFRD_II_avg = np.trapezoid(SFRD_II_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, zSFRD, zSFRD), HMF_interpolator.logtabMh, axis = 1) #never changes with J_LW
         SFRD_II_interp = interpolate.interp1d(zSFRDflat, SFRD_II_avg, kind = 'cubic', bounds_error = False, fill_value = 0,)
 
         J21LW_II = 1e21 * J_LW(Astro_Parameters, Cosmo_Parameters, SFRD_II_avg, zSFRDflat, 2) #this never changes; only Pop III Quanties change
         self.J_21_LW_II = interpolate.interp1d(zSFRDflat, J21LW_II, kind = 'cubic')(self.zintegral) #different from J21LW_interp
 
         if Astro_Parameters.USE_POPIII == True:
-            SFRD_III_Iter_Matrix = [np.trapz(SFRD_III_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, J21LW_interp, zSFRD, zSFRD, ClassCosmo.pars['v_avg']), HMF_interpolator.logtabMh, axis = 1)] #changes with each iteration
+            SFRD_III_Iter_Matrix = [np.trapezoid(SFRD_III_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, J21LW_interp, zSFRD, zSFRD, ClassCosmo.pars['v_avg']), HMF_interpolator.logtabMh, axis = 1)] #changes with each iteration
 
             errorTolerance = 0.001 # 0.1 percent accuracy
             recur_iterate_Flag = True
@@ -153,7 +153,7 @@ class get_T21_coefficients:
                 J21LW_III_iter = 1e21 * J_LW(Astro_Parameters, Cosmo_Parameters, SFRD_III_Iter_Matrix[-1], zSFRDflat, 3)
                 J21LW_interp = interpolate.interp1d(zSFRDflat, J21LW_II + J21LW_III_iter, kind = 'linear', fill_value = 0, bounds_error = False)
 
-                SFRD_III_avg_n = np.trapz(SFRD_III_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, J21LW_interp, zSFRD, zSFRD, ClassCosmo.pars['v_avg']), HMF_interpolator.logtabMh, axis = 1)
+                SFRD_III_avg_n = np.trapezoid(SFRD_III_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, J21LW_interp, zSFRD, zSFRD, ClassCosmo.pars['v_avg']), HMF_interpolator.logtabMh, axis = 1)
                 SFRD_III_Iter_Matrix.append(SFRD_III_avg_n)
 
                 if max(SFRD_III_Iter_Matrix[-1]/SFRD_III_Iter_Matrix[-2]) < 1.0 + errorTolerance and min(SFRD_III_Iter_Matrix[-1]/SFRD_III_Iter_Matrix[-2]) > 1.0 - errorTolerance:
@@ -179,8 +179,8 @@ class get_T21_coefficients:
             zpTable, tempTable, mTable = np.meshgrid(self.zintegral, self.Rtabsmoo, HMF_interpolator.Mhtab, indexing = 'ij', sparse = True)
             zppTable = self.zGreaterMatrix.reshape((len(self.zintegral), len(self.Rtabsmoo), 1))
 
-            self.SFRDbar2D_II = np.trapz(SFRD_II_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mTable, zppTable, zpTable), HMF_interpolator.logtabMh, axis = 2)
-            self.SFRDbar2D_III = np.trapz(SFRD_III_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mTable, J21LW_interp, zppTable, zpTable, ClassCosmo.pars['v_avg']), HMF_interpolator.logtabMh, axis = 2)
+            self.SFRDbar2D_II = np.trapezoid(SFRD_II_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mTable, zppTable, zpTable), HMF_interpolator.logtabMh, axis = 2)
+            self.SFRDbar2D_III = np.trapezoid(SFRD_III_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mTable, J21LW_interp, zppTable, zpTable, ClassCosmo.pars['v_avg']), HMF_interpolator.logtabMh, axis = 2)
 
             self.SFRDbar2D_II[np.isnan(self.SFRDbar2D_II)] = 0.0
             self.SFRDbar2D_III[np.isnan(self.SFRDbar2D_III)] = 0.0
@@ -241,13 +241,13 @@ class get_T21_coefficients:
 
         ########
         # Compute SFRD quantities
-        SFRD_II_dR = np.trapz(integrand_II, HMF_interpolator.logtabMh, axis = 2)
+        SFRD_II_dR = np.trapezoid(integrand_II, HMF_interpolator.logtabMh, axis = 2)
         # SarahLibanore: to compute reionization
-        niondot_II_dR = np.trapz(integrand_II*fesctab_II[None, None, :, None], HMF_interpolator.logtabMh, axis = 2)
+        niondot_II_dR = np.trapezoid(integrand_II*fesctab_II[None, None, :, None], HMF_interpolator.logtabMh, axis = 2)
 
         # SarahLibanore: compute quantities in Lagrangian space to get gamma in Lagrangian space
-        SFRD_II_dR_Lag = np.trapz(integrand_II_Lag, HMF_interpolator.logtabMh, axis = 2)
-        niondot_II_dR_Lag = np.trapz(integrand_II_Lag*fesctab_II[None, None, :, None], HMF_interpolator.logtabMh, axis = 2)
+        SFRD_II_dR_Lag = np.trapezoid(integrand_II_Lag, HMF_interpolator.logtabMh, axis = 2)
+        niondot_II_dR_Lag = np.trapezoid(integrand_II_Lag*fesctab_II[None, None, :, None], HMF_interpolator.logtabMh, axis = 2)
 
         ###
         if Astro_Parameters.USE_POPIII == True:
@@ -256,9 +256,9 @@ class get_T21_coefficients:
             elif(Cosmo_Parameters.Flag_emulate_21cmfast==True):
                 integrand_III = PS_HMF_corr * SFR_III(Astro_Parameters, Cosmo_Parameters, ClassCosmo, HMF_interpolator, mArray, J21LW_interp, zGreaterArray, zGreaterArray, ClassCosmo.pars['v_avg']) * mArray
 
-            SFRD_III_dR = np.trapz(integrand_III, HMF_interpolator.logtabMh, axis = 2)
+            SFRD_III_dR = np.trapezoid(integrand_III, HMF_interpolator.logtabMh, axis = 2)
             # SarahLibanore: reionization
-            niondot_III_dR = np.trapz(integrand_III*fesctab_III[None, None, :, None], HMF_interpolator.logtabMh, axis = 2)
+            niondot_III_dR = np.trapezoid(integrand_III*fesctab_III[None, None, :, None], HMF_interpolator.logtabMh, axis = 2)
 
         else:
             SFRD_III_dR = np.zeros_like(SFRD_II_dR)
@@ -376,7 +376,7 @@ class get_T21_coefficients:
                 else:
                     print("ERROR: Need to set FLAG_EMULATE_21CMFAST at True or False in the self.gamma_index2D calculation.")
 
-                SFRD_III_dR_V = np.trapz(integrand_III, HMF_interpolator.logtabMh, axis = 2)
+                SFRD_III_dR_V = np.trapezoid(integrand_III, HMF_interpolator.logtabMh, axis = 2)
 
                 SFRDIII_Ratio = SFRD_III_dR_V / SFRD_III_dR_V[:,:,len(vAvg_array)//2].reshape((len(self.zintegral), len(self.Rtabsmoo), 1))
                 SFRDIII_Ratio[np.isnan(SFRDIII_Ratio)] = 0.0
@@ -500,7 +500,7 @@ class get_T21_coefficients:
 
         opticalDepthIntegrand = 1 / cosmology.HubinvMpc(Cosmo_Parameters, zPPCube) / (1+zPPCube) * sigmatot * cosmology.n_H(Cosmo_Parameters, zPPCube) * constants.Mpctocm #this uses atom fractions of 1 for HI and x_He for HeI
 #        opticalDepthIntegrand = 1 / cosmology.HubinvMpc(Cosmo_Parameters, zPPCube) / (1+zPPCube) * sigmatot * cosmology.n_baryon(Cosmo_Parameters, zPPCube) * constants.Mpctocm
-        tauCube = np.trapz(opticalDepthIntegrand, zPPCube, axis = 3)
+        tauCube = np.trapezoid(opticalDepthIntegrand, zPPCube, axis = 3)
 
         indextautoolarge = np.array(tauCube>=Xrays.TAUMAX)
         tauCube[indextautoolarge] = Xrays.TAUMAX
@@ -658,8 +658,8 @@ class get_T21_coefficients:
         integrand_II_table = SFRD_II_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, zArray, zArray)
         integrand_III_table = SFRD_III_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, mArray, J21LW_interp, zArray, zArray, ClassCosmo.pars['v_avg'])
         
-        self.niondot_avg_II = Astro_Parameters.N_ion_perbaryon_II/cosmology.rho_baryon(Cosmo_Parameters,0.) * np.trapz(integrand_II_table * fesctab_II, HMF_interpolator.logtabMh, axis = 1)
-        self.niondot_avg_III = Astro_Parameters.N_ion_perbaryon_II/cosmology.rho_baryon(Cosmo_Parameters,0.) * np.trapz(integrand_III_table * fesctab_III, HMF_interpolator.logtabMh, axis = 1)
+        self.niondot_avg_II = Astro_Parameters.N_ion_perbaryon_II/cosmology.rho_baryon(Cosmo_Parameters,0.) * np.trapezoid(integrand_II_table * fesctab_II, HMF_interpolator.logtabMh, axis = 1)
+        self.niondot_avg_III = Astro_Parameters.N_ion_perbaryon_II/cosmology.rho_baryon(Cosmo_Parameters,0.) * np.trapezoid(integrand_III_table * fesctab_III, HMF_interpolator.logtabMh, axis = 1)
         self.niondot_avg = self.niondot_avg_II + self.niondot_avg_III
 
         if(Cosmo_Parameters.Flag_emulate_21cmfast==False): #regular calculation, integrating over time and accounting for recombinations in the exponent
@@ -708,7 +708,7 @@ def tau_reio(Cosmo_Parameters, T21_coefficients):
     _nelistlowz = cosmology.n_H(Cosmo_Parameters,_zlistlowz)*(1.0 + Cosmo_Parameters.x_He + Cosmo_Parameters.x_He * np.heaviside(constants.zHeIIreio - _zlistlowz,0.5))
 #    _nelistlowz = cosmology.n_baryon(Cosmo_Parameters,_zlistlowz)*(Cosmo_Parameters.f_H + Cosmo_Parameters.f_He + Cosmo_Parameters.f_He * np.heaviside(constants.zHeIIreio - _zlistlowz,0.5))
     _distlistlowz = 1.0/cosmology.HubinvMpc(Cosmo_Parameters,_zlistlowz)/(1+_zlistlowz)
-    _lowzint = constants.sigmaT * np.trapz(_nelistlowz*_distlistlowz,_zlistlowz) * constants.Mpctocm
+    _lowzint = constants.sigmaT * np.trapezoid(_nelistlowz*_distlistlowz,_zlistlowz) * constants.Mpctocm
 
     _zlisthiz = T21_coefficients.zintegral
     
@@ -716,7 +716,7 @@ def tau_reio(Cosmo_Parameters, T21_coefficients):
 #    _nelistlhiz = cosmology.n_baryon(Cosmo_Parameters,_zlisthiz) * (1.0 - T21_coefficients.xHI_avg)
     _distlisthiz = 1.0/cosmology.HubinvMpc(Cosmo_Parameters,_zlisthiz)/(1+_zlisthiz)
 
-    _hizint = constants.sigmaT * np.trapz(_nelistlhiz*_distlisthiz,_zlisthiz) * constants.Mpctocm
+    _hizint = constants.sigmaT * np.trapezoid(_nelistlhiz*_distlisthiz,_zlisthiz) * constants.Mpctocm
 
     return(_lowzint + _hizint)
 
@@ -798,7 +798,7 @@ def J_LW(Astro_Parameters, Cosmo_Parameters, sfrdIter, z, pop):
 #    integrandLW *= (1+z)**3 / cosmology.Hubinvyr(Cosmo_Parameters,zIntMatrix) / (1+zIntMatrix) #HAC: delete this and comment above back in!!!
     integrandLW *= Nlw * Elw / massProton / deltaNulw
     integrandLW = integrandLW * sfrdIterMatrix_LW * (1 /u.Mpc**2).to(1/u.cm**2).value #broadcasting doesn't like augmented assignment operations (like *=) for some reason
-    return np.trapz(integrandLW, x = zIntMatrix, axis = 0)
+    return np.trapezoid(integrandLW, x = zIntMatrix, axis = 0)
 
 
 def SFRD_II_integrand(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, massVector, z, z2):
@@ -932,7 +932,7 @@ def dSFRDIII_dJ(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, J21LW_inte
     integrand_III = HMF_curr * SFRtab_currIII * HMF_interpolator.Mhtab
     integrand_III *= Astro_Parameters.A_LW * Astro_Parameters.beta_LW * J21LW_interp(z)**(Astro_Parameters.beta_LW - 1)
     integrand_III *= -1 * Mmol_vcb(Astro_Parameters, Cosmo_Parameters, z, Cosmo_Parameters.vcb_avg)/ HMF_interpolator.Mhtab
-    return np.trapz(integrand_III, HMF_interpolator.logtabMh)
+    return np.trapezoid(integrand_III, HMF_interpolator.logtabMh)
 
 
 def fesc_II(Astro_Parameters, Mh):
