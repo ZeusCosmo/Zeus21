@@ -93,8 +93,6 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
     xlo_cut = np.fmax(xlo, x_min)
 
     weights_unnormalized = (erf(xhi_cut) - erf(xlo_cut)).T/(2.0 * MUVwidths)
-    weights = np.zeros_like(weights_unnormalized)
-
     weights = weights_unnormalized/ (0.5*(1-erf(x_min)+1e-6))[:,None] # Renormalize distributions based on the portion cut off by min_MUV
 
     ### Standard as usual, no cuts:
