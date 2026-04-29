@@ -100,7 +100,7 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
     ### Standard as usual, no cuts:
     # weights = (erf(xhi) - erf(xlo)).T/(2.0 * MUVwidths) #comment to myself, this 2 in denominator is correct here, nothing to do with the MUVwidths/2 a few lines above
     
-    UVLF_filtered = np.trapz(weights.T * HMFcurr, HMF_interpolator.Mhtab, axis=-1)
+    UVLF_filtered = np.trapezoid(weights.T * HMFcurr, HMF_interpolator.Mhtab, axis=-1)
 
 
     if(Astro_Parameters.USE_POPIII==False):
