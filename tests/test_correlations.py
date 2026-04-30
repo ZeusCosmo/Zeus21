@@ -19,11 +19,8 @@ warnings.filterwarnings("ignore", category=UserWarning) #to silence annyoing war
 
 UserParams = zeus21.User_Parameters()
 
-CosmoParams_input = zeus21.Cosmo_Parameters_Input(kmax_CLASS = 10., zmax_CLASS = 10.) #to speed up
-ClassyCosmo = zeus21.runclass(CosmoParams_input)
-CosmoParams = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input, ClassyCosmo)
-
-CorrFClass = zeus21.Correlations(UserParams, CosmoParams, ClassyCosmo)
+CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100., zmax_CLASS=10.) #to speed up
+CorrFClass = zeus21.Correlations(UserParams, CosmoParams)
 
 
 def test_corrfuncs():

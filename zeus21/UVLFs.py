@@ -46,8 +46,8 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
 
 
 
-    
-    SFRlist = SFR_II(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, HMF_interpolator.Mhtab, zcenter, zcenter)
+    _sfrd = SFRD_class.__new__(SFRD_class)
+    SFRlist = _sfrd.SFR(Cosmo_Parameters, Astro_Parameters, HMF_interpolator, HMF_interpolator.Mhtab, zcenter, pop=2)
     sigmaUV = Astro_Parameters.sigmaUV
     
     if (constants.FLAG_RENORMALIZE_LUV == True): #lower the LUV (or SFR) to recover the true avg, not log-avg
@@ -81,7 +81,7 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
     xhi = np.subtract.outer(MUVcuthi, currMUV)/(np.sqrt(2) * sigmaUV)
     xlo = np.subtract.outer(MUVcutlo, currMUV )/(np.sqrt(2) * sigmaUV)
 
-    if (Astro_Parameters.min_t_formation_Myr == None):
+    if (getattr(Astro_Parameters, 'min_t_formation_Myr', None) == None):
         min_MUV = -100.0 # essentially no cutoff, since the scatter is large at low masses and can cause numerical issues if we try to integrate over unphysically bright galaxies there. This is just a numerical cutoff, not a physical one, and the exact value doesn't matter much since the scatter is large there anyway.
     else:
         Mstarmax = HMF_interpolator.Mhtab * Cosmo_Parameters.OmegaB /Cosmo_Parameters.OmegaM #max stellar mass in each halo, if all baryons turned to stars
@@ -105,7 +105,7 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
         return UVLF_filtered
     else:
         _J21interptemp = interp1d(np.linspace(0,100,3), np.zeros(3), kind = 'linear', bounds_error = False, fill_value = 0,) #TODO: how to deal with J21, requires running get_21_coefficients
-        SFRlist_III = SFR_III(Astro_Parameters, Cosmo_Parameters, HMF_interpolator, HMF_interpolator.Mhtab, _J21interptemp, zcenter, zcenter, Cosmo_Parameters.vcb_avg)
+        SFRlist_III = _sfrd.SFR(Cosmo_Parameters, Astro_Parameters, HMF_interpolator, HMF_interpolator.Mhtab, zcenter, pop=3, vCB=Cosmo_Parameters.vcb_avg, J21LW_interp=_J21interptemp)
     
         MUVbarlist_III = MUV_of_SFR(SFRlist_III, Astro_Parameters._kappaUV_III) #avg for each Mh
         MUVbarlist_III = np.fmin(MUVbarlist_III,constants._MAGMAX)

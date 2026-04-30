@@ -16,21 +16,18 @@ from zeus21.maps import CoevalMaps, powerboxCtoR
 def test_coevalmaps_initialization():
     """Test that CoevalMaps initializes correctly"""
     # Set up the necessary objects
-    UserParams = zeus21.User_Parameters()
-    CosmoParams_input = zeus21.Cosmo_Parameters_Input(kmax_CLASS=100.) # Use higher kmax_CLASS as in test_astrophysics.py
-    ClassyCosmo = zeus21.runclass(CosmoParams_input)
-    CosmoParams = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input, ClassyCosmo)
+    UserParams = zeus21.User_Parameters(zmin_T21=20.0)
+    CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100.) # Use higher kmax_CLASS as in test_astrophysics.py
     
-    AstroParams = zeus21.Astro_Parameters(UserParams, CosmoParams)
-    HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams, ClassyCosmo)
-    CorrFClass = zeus21.Correlations(UserParams, CosmoParams, ClassyCosmo)
+    AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
+    HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
+    CorrFClass = zeus21.Correlations(UserParams, CosmoParams)
     
     # Generate T21 coefficients
-    ZMIN = 20.0  # Use same ZMIN as in test_astrophysics.py
-    Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, ClassyCosmo, AstroParams, HMFintclass, zmin=ZMIN)
+    Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, AstroParams, HMFintclass)
     
     # Generate power spectra
-    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, ClassyCosmo, CorrFClass, Coeffs)
+    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, CorrFClass, Coeffs)
     
     # Test redshift
     ztest = 25.0  # Use a redshift that's compatible with our ZMIN setting
@@ -59,21 +56,18 @@ def test_coevalmaps_initialization():
 def test_coevalmaps_kind1():
     """Test CoevalMaps with KIND=1 (correlated density and T21)"""
     # Set up the necessary objects
-    UserParams = zeus21.User_Parameters()
-    CosmoParams_input = zeus21.Cosmo_Parameters_Input(kmax_CLASS=100.) # Use higher kmax_CLASS as in test_astrophysics.py
-    ClassyCosmo = zeus21.runclass(CosmoParams_input)
-    CosmoParams = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input, ClassyCosmo)
+    UserParams = zeus21.User_Parameters(zmin_T21=20.0)
+    CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100.) # Use higher kmax_CLASS as in test_astrophysics.py
     
-    AstroParams = zeus21.Astro_Parameters(UserParams, CosmoParams)
-    HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams, ClassyCosmo)
-    CorrFClass = zeus21.Correlations(UserParams, CosmoParams, ClassyCosmo)
+    AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
+    HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
+    CorrFClass = zeus21.Correlations(UserParams, CosmoParams)
     
     # Generate T21 coefficients
-    ZMIN = 20.0  # Use same ZMIN as in test_astrophysics.py
-    Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, ClassyCosmo, AstroParams, HMFintclass, zmin=ZMIN)
+    Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, AstroParams, HMFintclass)
     
     # Generate power spectra
-    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, ClassyCosmo, CorrFClass, Coeffs)
+    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, CorrFClass, Coeffs)
     
     # Test redshift
     ztest = 25.0  # Use a redshift that's compatible with our ZMIN setting
@@ -109,21 +103,18 @@ def test_coevalmaps_kind1():
 
 def test_powerboxCtoR():
     """Test the powerboxCtoR utility function"""
-    UserParams = zeus21.User_Parameters()
-    CosmoParams_input = zeus21.Cosmo_Parameters_Input(kmax_CLASS=100.) # Use higher kmax_CLASS as in test_astrophysics.py
-    ClassyCosmo = zeus21.runclass(CosmoParams_input)
-    CosmoParams = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input, ClassyCosmo)
+    UserParams = zeus21.User_Parameters(zmin_T21=20.0)
+    CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100.) # Use higher kmax_CLASS as in test_astrophysics.py
     
-    AstroParams = zeus21.Astro_Parameters(UserParams, CosmoParams)
-    HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams, ClassyCosmo)
-    CorrFClass = zeus21.Correlations(UserParams, CosmoParams, ClassyCosmo)
+    AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
+    HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
+    CorrFClass = zeus21.Correlations(UserParams, CosmoParams)
     
     # Generate T21 coefficients
-    ZMIN = 20.0  # Use same ZMIN as in test_astrophysics.py
-    Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, ClassyCosmo, AstroParams, HMFintclass, zmin=ZMIN)
+    Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, AstroParams, HMFintclass)
     
     # Generate power spectra
-    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, ClassyCosmo, CorrFClass, Coeffs)
+    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, CorrFClass, Coeffs)
     
     # Test redshift
     ztest = 25.0  # Use a redshift that's compatible with our ZMIN setting
