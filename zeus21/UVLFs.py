@@ -14,7 +14,7 @@ UT Austin - June 2025
 
 from . import cosmology
 from . import constants
-from .sfrd import SFR_II, SFR_III
+from .sfrd import *
 from .cosmology import bias_Tinker
 
 import numpy as np
