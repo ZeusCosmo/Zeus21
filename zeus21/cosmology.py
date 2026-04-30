@@ -8,112 +8,29 @@ UT Austin and Harvard CfA - January 2023
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
 
+Edited by Emilie Thelie
+UT Austin - April 2026
 """
 
 import numpy as np
-from classy import Class
 from scipy.interpolate import RegularGridInterpolator
-from scipy.interpolate import interp1d
-
-import mcfit
 
 from . import constants
-from .inputs import Cosmo_Parameters, Cosmo_Parameters_Input
+from .inputs import Cosmo_Parameters
 from .correlations import Correlations
 
-def cosmo_wrapper(User_Parameters, Cosmo_Parameters_Input):
+def cosmo_wrapper(User_Parameters):
     """
     Wrapper function for all the cosmology. It takes Cosmo_Parameters_Input and returns:
     Cosmo_Parameters, Class_Cosmo, Correlations, HMF_interpolator
     """
 
-    ClassCosmo = Class()
-    ClassCosmo.compute()
+    CosmoParams = Cosmo_Parameters(User_Parameters) 
+    CorrFClass = Correlations(User_Parameters, CosmoParams, CosmoParams.ClassyCosmo) ### TODO
+    HMFintclass = HMF_interpolator(User_Parameters,CosmoParams)
 
-    ClassyCosmo = runclass(Cosmo_Parameters_Input)
-    CosmoParams = Cosmo_Parameters(User_Parameters, Cosmo_Parameters_Input, ClassyCosmo) 
-    CorrFClass = Correlations(User_Parameters, CosmoParams, ClassyCosmo)
-    HMFintclass = HMF_interpolator(User_Parameters,CosmoParams,ClassyCosmo)
+    return CosmoParams, CorrFClass, HMFintclass
 
-    return CosmoParams, ClassyCosmo, CorrFClass, HMFintclass
-
-
-
-def runclass(CosmologyIn):
-    "Set up CLASS cosmology. Takes CosmologyIn class input and returns CLASS Cosmology object"
-    ClassCosmo = Class()
-    ClassCosmo.set({'omega_b': CosmologyIn.omegab,'omega_cdm': CosmologyIn.omegac,
-                    'h': CosmologyIn.h_fid,'A_s': CosmologyIn.As,'n_s': CosmologyIn.ns,'tau_reio': CosmologyIn.tau_fid})
-    ClassCosmo.set({'output':'mPk','lensing':'no','P_k_max_1/Mpc':CosmologyIn.kmax_CLASS, 'z_max_pk': CosmologyIn.zmax_CLASS}) ###HAC: add vTK to outputs
-    ClassCosmo.set({'gauge':'synchronous'})
-    #hfid = ClassCosmo.h() # get reduced Hubble for conversions to 1/Mpc
-
-    # and run it (see warmup for their doc)
-    ClassCosmo.compute()
-    
-    ClassCosmo.pars['Flag_emulate_21cmfast'] = CosmologyIn.Flag_emulate_21cmfast
-    
-    ###HAC: Adding VCB feedback via a second run of CLASS:
-    if CosmologyIn.USE_RELATIVE_VELOCITIES == True:
-        
-        kMAX_VCB = 50.0
-        ###HAC: getting z_rec from first CLASS run
-        z_rec = ClassCosmo.get_current_derived_parameters(['z_rec'])['z_rec']
-        z_drag = ClassCosmo.get_current_derived_parameters(['z_d'])['z_d']
-
-        ###HAC: Running CLASS a second time just to get velocity transfer functions at recombination
-        ClassCosmoVCB = Class()
-        ClassCosmoVCB.set({'omega_b': CosmologyIn.omegab,'omega_cdm': CosmologyIn.omegac,
-                        'h': CosmologyIn.h_fid,'A_s': CosmologyIn.As,'n_s': CosmologyIn.ns,'tau_reio': CosmologyIn.tau_fid})
-        ClassCosmoVCB.set({'output':'vTk'})
-        ClassCosmoVCB.set({'P_k_max_1/Mpc':kMAX_VCB, 'z_max_pk':12000})
-        ClassCosmoVCB.set({'gauge':'newtonian'})
-        ClassCosmoVCB.compute()
-        velTransFunc = ClassCosmoVCB.get_transfer(z_drag)
-
-        kVel = velTransFunc['k (h/Mpc)'] * CosmologyIn.h_fid
-        theta_b = velTransFunc['t_b']
-        theta_c = velTransFunc['t_cdm']
-
-        sigma_vcb = np.sqrt(np.trapezoid(CosmologyIn.As * (kVel/0.05)**(CosmologyIn.ns-1) /kVel * (theta_b - theta_c)**2/kVel**2, kVel)) * constants.c_kms
-        ClassCosmo.pars['sigma_vcb'] = sigma_vcb
-        
-        ###HAC: now computing average velocity assuming a Maxwell-Boltzmann distribution of velocities
-        velArr = np.geomspace(0.01, constants.c_kms, 1000) #in km/s
-        vavgIntegrand = (3 / (2 * np.pi * sigma_vcb**2))**(3/2) * 4 * np.pi * velArr**2 * np.exp(-3 * velArr**2 / (2 * sigma_vcb**2))
-        ClassCosmo.pars['v_avg'] = np.trapezoid(vavgIntegrand * velArr, velArr)
-        
-        ###HAC: Computing Vcb Power Spectrum
-        ClassCosmo.pars['k_vcb'] = kVel
-        ClassCosmo.pars['theta_b'] = theta_b
-        ClassCosmo.pars['theta_c'] = theta_c
-        P_vcb = CosmologyIn.As * (kVel/0.05)**(CosmologyIn.ns-1) * (theta_b - theta_c)**2/kVel**2 * 2 * np.pi**2 / kVel**3
-        
-        p_vcb_intp = interp1d(np.log(kVel), P_vcb)
-        ClassCosmo.pars['P_vcb'] = P_vcb
-        
-        ###HAC: Computing Vcb^2 (eta) Power Spectra
-        kVelIntp = np.geomspace(1e-4, kMAX_VCB, 512)
-        rVelIntp = 2 * np.pi / kVelIntp
-        
-        j0bessel = lambda x: np.sin(x)/x
-        j2bessel = lambda x: (3 / x**2 - 1) * np.sin(x)/x - 3*np.cos(x)/x**2
-        
-        psi0 = 1 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapezoid(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j0bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
-        psi2 = -2 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapezoid(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j2bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
-        
-        k_eta, P_eta = mcfit.xi2P(rVelIntp, l=0, lowring = True)((6 * psi0**2 + 3 * psi2**2), extrap = False)
-        
-        ClassCosmo.pars['k_eta'] = k_eta[P_eta > 0]
-        ClassCosmo.pars['P_eta'] = P_eta[P_eta > 0]
-        
-#        print("HAC: Finished running CLASS a second time to get velocity transfer functions")
-        
-    else:
-        ClassCosmo.pars['v_avg'] = 0.0
-        ClassCosmo.pars['sigma_vcb'] = 1.0 #Avoids excess computation, but doesn't matter what value we set it to because the flag in inputs.py sets all feedback parameters to zero
-    
-    return ClassCosmo
 
 def Hub(Cosmo_Parameters, z):
 #Hubble(z) in km/s/Mpc
@@ -211,7 +128,7 @@ def PS_HMF_unnorm(Cosmo_Parameters, Mass, nu, dlogSdM):
 class HMF_interpolator:
     "Class that builds an interpolator of the HMF. Returns an interpolator"
 
-    def __init__(self, User_Parameters, Cosmo_Parameters, ClassCosmo):
+    def __init__(self, User_Parameters, Cosmo_Parameters):
 
         self._Mhmin = 1e5 #originally 1e5
         self._Mhmax = 1e14
@@ -231,10 +148,10 @@ class HMF_interpolator:
         if (Cosmo_Parameters.kmax_CLASS < 1.0/self.RMhtab[0]):
             print('Warning! kmax_CLASS may be too small! Run CLASS with higher kmax')
 
-        self.sigmaMhtab = np.array([[ClassCosmo.sigma(RR,zz) for zz in self.zHMFtab] for RR in self.RMhtab])
+        self.sigmaMhtab = np.array([[Cosmo_Parameters.ClassCosmo.sigma(RR,zz) for zz in self.zHMFtab] for RR in self.RMhtab])
 
         self._depsM=0.01 #for derivatives, relative to M
-        self.dsigmadMMhtab = np.array([[(ClassCosmo.sigma(RadofMh(Cosmo_Parameters, MM*(1+self._depsM)),zz)-ClassCosmo.sigma(RadofMh(Cosmo_Parameters, MM*(1-self._depsM)),zz))/(MM*2.0*self._depsM) for zz in self.zHMFtab] for MM in self.Mhtab])
+        self.dsigmadMMhtab = np.array([[(Cosmo_Parameters.ClassCosmo.sigma(RadofMh(Cosmo_Parameters, MM*(1+self._depsM)),zz)-Cosmo_Parameters.ClassCosmo.sigma(RadofMh(Cosmo_Parameters, MM*(1-self._depsM)),zz))/(MM*2.0*self._depsM) for zz in self.zHMFtab] for MM in self.Mhtab])
 
 
         if(Cosmo_Parameters.Flag_emulate_21cmfast==True):
@@ -288,7 +205,7 @@ class HMF_interpolator:
 
 
         #also build an interpolator for sigma(R) of the R we integrate over (for CD and EoR). These R >> Rhalo typically, so need new table.
-        self.sigmaofRtab = np.array([[ClassCosmo.sigma(RR,zz) for zz in self.zHMFtab] for RR in Cosmo_Parameters._Rtabsmoo])
+        self.sigmaofRtab = np.array([[Cosmo_Parameters.ClassCosmo.sigma(RR,zz) for zz in self.zHMFtab] for RR in Cosmo_Parameters._Rtabsmoo])
         self.fitRztab = [np.log(Cosmo_Parameters._Rtabsmoo), self.zHMFtab]
         self.sigmaRintlog = RegularGridInterpolator(self.fitRztab, self.sigmaofRtab, bounds_error = False, fill_value = np.nan) #no need to log either
 
