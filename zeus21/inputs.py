@@ -297,7 +297,8 @@ class Cosmo_Parameters:
         # derived params
         self.omegam = self.omegab + self.omegac
         self.OmegaM = self.ClassCosmo.Omega_m()
-        self.rhocrit = 3 * 100**2 / (8 * np.pi* constants.MsunToKm * constants.c_kms**2 * constants.KmToMpc) * self.h_fid**2 # Msun/Mpc^3
+        #self.rhocrit = 3 * 100**2 / (8 * np.pi* constants.MsunToKm * constants.c_kms**2 * constants.KmToMpc) * self.h_fid**2 # Msun/Mpc^3
+        self.rhocrit = 2.78e11*self.h_fid**2 #Msun/Mpc^3
         self.OmegaR = self.ClassCosmo.Omega_r()
         self.OmegaL = self.ClassCosmo.Omega_Lambda()
         self.OmegaB = self.ClassCosmo.Omega_b()
@@ -644,7 +645,7 @@ class Astro_Parameters:
     clumping: float = 3.
     N_ion_perbaryon_II: int = _field(init=False) # fixed for PopII-type (Salpeter)
     N_ion_perbaryon_III: int = _field(init=False) # fixed for PopIII-type, from Klessen & Glover 2023 Table A2 (2303.12500)
-    R_linear_sigma_fit_input: float = 3.
+    R_linear_sigma_fit_input: float = 10.
     FLAG_BMF_converge: bool = True
     max_iter: int = 10
     ZMAX_REION: float = 30
@@ -708,7 +709,7 @@ class Astro_Parameters:
         
         # Reionization parameters
         if CosmoParams.Flag_emulate_21cmfast:
-            self._clumping = 2.0 # this is the 21cmFAST value
+            self.clumping = 2.0 # this is the 21cmFAST value
         # number of ionizing photons per baryon
         self.N_ion_perbaryon_II = 5000 # fixed for PopII-type (Salpeter)
         if CosmoParams.Flag_emulate_21cmfast:

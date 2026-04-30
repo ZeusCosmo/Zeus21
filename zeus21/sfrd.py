@@ -104,8 +104,18 @@ class SFRD_class:
         
         self.SFRDbar2D_III = self.SFRD_III_cnvg_interp(np.nan_to_num(z_Init.zGreaterMatrix, nan = 100))
             
+        # Reionization
         self.fesctab_II = self.fesc_II(AstroParams, HMFinterp.Mhtab) #prepare fesc(M) table -- z independent for now so only once
         self.fesctab_III = self.fesc_III(AstroParams, HMFinterp.Mhtab) #PopIII prepare fesc(M) table -- z independent for now so only once
+        reio_integrand_II = self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zSFRD, pop=2)
+        reio_integrand_III = self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zSFRD, pop=3)
+        niondot_avg_II = AstroParams.N_ion_perbaryon_II/cosmology.rho_baryon(CosmoParams,0.) * np.trapezoid(reio_integrand_II * self.fesctab_II, HMFinterp.logtabMh, axis = 1)
+        niondot_avg_III = AstroParams.N_ion_perbaryon_III/cosmology.rho_baryon(CosmoParams,0.) * np.trapezoid(reio_integrand_III * self.fesctab_III, HMFinterp.logtabMh, axis = 1)
+        self.reio_integrand_II_interp = interpolate.interp1d(zSFRDflat, niondot_avg_II, kind = 'cubic', bounds_error = False, fill_value = 0)
+        self.reio_integrand_III_interp = interpolate.interp1d(zSFRDflat, niondot_avg_III, kind = 'cubic', bounds_error = False, fill_value = 0)
+        self.niondot_avg_II = self.reio_integrand_II_interp(z_Init.zintegral)
+        self.niondot_avg_III = self.reio_integrand_III_interp(z_Init.zintegral)
+        self.niondot_avg = self.niondot_avg_II + self.niondot_avg_III
 
         if not UserParams.DO_ONLY_GLOBAL:
 
