@@ -296,12 +296,8 @@ class get_T21_coefficients:
         
         #####################################################################################################
         ### Reionization
-<<<<<<< Updated upstream
-        self.xHI_avg = np.ones_like(self.z_Init.zintegral) #BMF()
-=======
         self.ReioGlobal = reionization_global(CosmoParams, AstroParams, HMFinterp, self.z_Init, self.SFRD_Init, PRINT_SUCCESS=False)
         self.xHI_avg = 1. - self.ReioGlobal.ion_frac ### TODO this one is volume weighted for now, maybe need to be rethought
->>>>>>> Stashed changes
 
         #####################################################################################################
         ### Compute the 21cm Global Signal
