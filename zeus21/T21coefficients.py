@@ -298,7 +298,7 @@ class get_T21_coefficients:
         
         #####################################################################################################
         ### Reionization
-        self.xHI_avg = 1. #BMF()
+        self.xHI_avg = np.ones_like(self.z_Init.zintegral) #BMF()
 
         #####################################################################################################
         ### Compute the 21cm Global Signal
