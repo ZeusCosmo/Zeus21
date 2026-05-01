@@ -8,8 +8,6 @@ UT Austin and Harvard CfA - January 2023
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
 
-Edited by Sarah Libanore
-BGU, - April 2026 
 """
 
 ###############################
@@ -96,9 +94,11 @@ MU_LoS = 1.0 #only fully LoS modes
 
 
 #UVLF related
-_MAGMAX = 10 #max abs magnitude to avoid infs
-FLAG_RENORMALIZE_LUV = False #whether to renormalize the lognormal LUV with sigmaUV to recover <LUV> or otherwise <MUV>. Recommend False.
+_MAGMAX_UV = 10. #max abs magnitude to avoid infs
+_MAGMIN_Ha = -50. #max abs magnitude to avoid infs
 NZ_TOINT = 3 #how many zs around <z> with z_rms we use to predict. Only in HMF since the rest do not vary much.
+
+LUV1500A_toMUV = 51.63 # pivot value for UV to luminosity conversion
 
 # SarahLibanore
 zmax_AstroBreak = 50. # max redshift above which we do not trust astro computation
