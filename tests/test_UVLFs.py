@@ -91,7 +91,7 @@ def test_UVLF_binned():
     """Test the binned UV luminosity function calculation"""
     # Set up parameters
     UserParams = zeus21.User_Parameters()
-    CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=10., zmax_CLASS=20.)
+    CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100., zmax_CLASS=20.)
     AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
     HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
     

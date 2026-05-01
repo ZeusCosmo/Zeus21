@@ -18,7 +18,7 @@ def test_inputs():
 
     UserParams = zeus21.User_Parameters()
 
-    paramscosmo = [0.022, 0.12, 0.07,2.1e-9, 0.96,0.05, 10., 10.]
+    paramscosmo = [0.022, 0.12, 0.07,2.1e-9, 0.96,0.05, 100., 10.]
     # omegab, omegac, h_fid, As, ns, tau_fid, kmax_CLASS, zmax_CLASS
 
     CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, omegab=paramscosmo[0], omegac=paramscosmo[1], h_fid=paramscosmo[2], As=paramscosmo[3], ns=paramscosmo[4], tau_fid=paramscosmo[5], kmax_CLASS=paramscosmo[6], zmax_CLASS=paramscosmo[7])
@@ -79,7 +79,7 @@ def test_inputs():
     assert( 0.0 <= AstroParams_21cmfast.fstarmax <= 10.0)
     assert(AstroParams_21cmfast.fstar10 == pytest.approx(AstroParams_21cmfast.epsstar) )
     assert( 0.0 <= AstroParams.clumping <= 10.0 )
-    assert( 0.0 <= AstroParams_21cmfast._clumping <= 10.0 )
+    assert( 0.0 <= AstroParams_21cmfast.clumping <= 10.0 )
 
 
 

@@ -21,13 +21,12 @@ def test_coevalmaps_initialization():
     
     AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
     HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
-    CorrFClass = zeus21.Correlations(UserParams, CosmoParams)
     
     # Generate T21 coefficients
     Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, AstroParams, HMFintclass)
     
     # Generate power spectra
-    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, CorrFClass, Coeffs)
+    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, Coeffs)
     
     # Test redshift
     ztest = 25.0  # Use a redshift that's compatible with our ZMIN setting
@@ -61,13 +60,12 @@ def test_coevalmaps_kind1():
     
     AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
     HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
-    CorrFClass = zeus21.Correlations(UserParams, CosmoParams)
     
     # Generate T21 coefficients
     Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, AstroParams, HMFintclass)
     
     # Generate power spectra
-    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, CorrFClass, Coeffs)
+    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, Coeffs)
     
     # Test redshift
     ztest = 25.0  # Use a redshift that's compatible with our ZMIN setting
@@ -108,13 +106,12 @@ def test_powerboxCtoR():
     
     AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
     HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
-    CorrFClass = zeus21.Correlations(UserParams, CosmoParams)
     
     # Generate T21 coefficients
     Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, AstroParams, HMFintclass)
     
     # Generate power spectra
-    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, CorrFClass, Coeffs)
+    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, Coeffs)
     
     # Test redshift
     ztest = 25.0  # Use a redshift that's compatible with our ZMIN setting

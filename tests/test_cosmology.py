@@ -20,7 +20,7 @@ def test_cosmo():
 
     UserParams = zeus21.User_Parameters()
 
-    CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=10., zmax_CLASS=10., USE_RELATIVE_VELOCITIES=True) #to speed up
+    CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100., zmax_CLASS=10., USE_RELATIVE_VELOCITIES=True) #to speed up
 
     #velocity component testing
     assert(10.0 <= CosmoParams.sigma_vcb <= 100.0)

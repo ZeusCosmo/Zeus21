@@ -22,9 +22,6 @@ def test_sfr_functions_relationships():
     
     AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams, USE_POPIII=True)
     HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
-    # Correlations must be created before SFRD_class when USE_POPIII+USE_LW_FEEDBACK
-    # because it stores xi_RR_CF in CosmoParams.ClassCosmo.pars
-    _ = zeus21.Correlations(UserParams, CosmoParams)
     
     # Create SFRD instance for method calls
     sfrd_obj = SFRD_class(UserParams, CosmoParams, AstroParams, HMFintclass)

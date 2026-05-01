@@ -26,7 +26,6 @@ HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
 
 AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
 AstroParams_popIII = zeus21.Astro_Parameters(CosmoParams=CosmoParams, USE_POPIII=True)
-CorrFClass = zeus21.Correlations(UserParams, CosmoParams)
 Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, AstroParams, HMFintclass)
 Coeffs_popIII = zeus21.get_T21_coefficients(UserParams, CosmoParams, AstroParams_popIII, HMFintclass)
 
@@ -125,13 +124,13 @@ def test_background():
 
 
 #and test the PS too
-PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, CorrFClass, Coeffs)
+PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, Coeffs)
 
 
 def test_pspec():
 
-    assert((PS21._rs_input_mcfit == CorrFClass.rlist_CF).all())
-    assert((PS21.klist_PS == CorrFClass._klistCF).all())
+    assert((PS21._rs_input_mcfit == CosmoParams.rlist_CF).all())
+    assert((PS21.klist_PS == CosmoParams._klistCF).all())
     assert((PS21.kwindow == PS21._kwindowX).all())
 
     ztest = 20.
