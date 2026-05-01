@@ -7,9 +7,6 @@ UT Austin and Harvard CfA - January 2023
 
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
-
-Edited by Sarah Libanore, Emilie Thelie
-BGU, UT Austin - April 2026 
 """
 
 from . import constants
@@ -77,8 +74,7 @@ class User_Parameters:
     zmin_T21: float = 5.
     DO_ONLY_GLOBAL: bool = False
 
-    C2_RENORMALIZATION_FLAG: bool = _field(init=False)
-
+    C2_RENORMALIZATION_FLAG: int = _field(init=False)
 
     def __post_init__(self):
         schema = {
@@ -285,6 +281,7 @@ class Cosmo_Parameters:
 
 
     def __post_init__(self, UserParams):
+     
         schema = {
             "Flag_emulate_21cmfast": (bool, None),
             "USE_RELATIVE_VELOCITIES": (bool, None),
@@ -292,14 +289,13 @@ class Cosmo_Parameters:
         }
         validate_fields(self, schema)
 
-        # run CLASS
+       # run CLASS
         self.ClassCosmo = self.runclass()
 
         # derived params
         self.omegam = self.omegab + self.omegac
         self.OmegaM = self.ClassCosmo.Omega_m()
         self.rhocrit = 3 * 100**2 / (8 * np.pi* constants.MsunToKm * constants.c_kms**2 * constants.KmToMpc) * self.h_fid**2 # Msun/Mpc^3
-        #self.rhocrit = 2.78e11*self.h_fid**2 #Msun/Mpc^3 ### TODO
         self.OmegaR = self.ClassCosmo.Omega_r()
         self.OmegaL = self.ClassCosmo.Omega_Lambda()
         self.OmegaB = self.ClassCosmo.Omega_b()
@@ -362,6 +358,7 @@ class Cosmo_Parameters:
             self.a_corr_EPS = self.a_ST
         else: # emulate 21cmFAST, including HMF from Jenkins 2001
             self.HMF_CHOICE = 'ST' # forced to match their functional form
+            print('Since Flag_emulate_21cmfast==True, the code set HMF_CHOICE==ST')
             self.a_ST = 0.73
             self.p_ST = 0.175
             self.Amp_ST = 0.353
@@ -624,12 +621,6 @@ class Astro_Parameters:
             Assuming Intermediate IMF from 2202.02099, equal to 4.86e-22 / (11.9 * u.eV).to(u.erg).value * 5.8e14.
         FLAG_MTURN_FIXED: bool
             Whether to fix Mturn or use Matom(z) at each z. Set by zeus21 depending on Mturn_fixed.
-        _kappaUV: float 
-            SFR/LUV. Set by zeus21 to the value from Madau+Dickinson14.
-            Fully degenerate with epsilon.
-        _kappaUV_III: float 
-            SFR/LUV for PopIII.  Set by zeus21 to the value from Madau+Dickinson14.
-            Assume X more efficient than PopII.
     
     Methods
     ----------
@@ -659,7 +650,6 @@ class Astro_Parameters:
     alphastar: float = 0.5
     betastar: float = -0.5
     Mc: float = 3e11
-    sigmaUV: float = 0.5 # TODO: only used in UVLF not sfrd
     _zpivot: float = _field(init=False)
     fstarmax: float = _field(init=False)
     alphastar_III: float = 0
@@ -718,20 +708,20 @@ class Astro_Parameters:
     FLAG_MTURN_SHARP: bool = False
     FLAG_MTURN_FIXED: bool = _field(init=False) # whether to fix Mturn or use Matom(z) at each z
     
-    ### Dust parameters for UVLFs
-    C0dust: float = 4.43
-    C1dust: float = 1.99 #4.43, 1.99 is Meurer99; 4.54, 2.07 is Overzier01
-    _kappaUV: float = _field(init=False) #SFR/LUV, value from Madau+Dickinson14, fully degenerate with epsilon
-    _kappaUV_III: float = _field(init=False) #SFR/LUV for PopIII. Assume X more efficient than PopII   
+    # BURSTINESS
+    FLAG_USE_PSD: bool = False
+
 
 
     def __post_init__(self, CosmoParams):
+
         schema = {
             "accretion_model": (str, {"EPS", "exp"}),
             "USE_POPIII": (bool, None),
             "USE_LW_FEEDBACK": (bool, None),
             "quadratic_SFRD_lognormal": (bool, None),
             "FLAG_MTURN_SHARP": (bool, None),
+            "FLAG_USE_PSD": (bool, None),
         }
         validate_fields(self, schema)
 
@@ -794,9 +784,6 @@ class Astro_Parameters:
         else:
             self.FLAG_MTURN_FIXED = True # whether to fix Mturn or use Matom(z) at each z
 
-        ### Dust parameters for UVLFs
-        self._kappaUV = 1.15e-28 #SFR/LUV, value from Madau+Dickinson14, fully degenerate with epsilon
-        self._kappaUV_III = self._kappaUV #SFR/LUV for PopIII. Assume X more efficient than PopII
 
 
 
@@ -852,6 +839,99 @@ class Astro_Parameters:
 
         return result/nucut #extra 1/nucut because dnu, normalizes the integral
         
+@dataclass(kw_only=True)
+class LF_Params:
+    '''
+        sigmaUV: float
+            Stochasticity (gaussian rms) in the halo-galaxy connection P(MUV | Mh). Default is 0.5.
+        _kappaUV: float 
+            SFR/LUV. Set by zeus21 to the value from Madau+Dickinson14.
+            Fully degenerate with epsilon.
+        _kappaUV_III: float 
+            SFR/LUV for PopIII.  Set by zeus21 to the value from Madau+Dickinson14.
+            Assume X more efficient than PopII.
+    '''
+
+    zcenter: float = 6. 
+    zwidth:  float = 0.5
+
+    MUVcenters: np.ndarray | float = _field(default_factory=lambda: np.linspace(-23,-14,100))
+    MUVwidths: np.ndarray | float = 0.5
+
+    FLAG_RENORMALIZE_LUV = False #whether to renormalize the lognormal LUV with sigmaUV to recover <LUV> or otherwise <MUV>. Recommend False.
+
+    sigmaUV: float = 0.5 
+
+    log10LHacenters: np.ndarray | float = _field(default_factory=lambda: np.linspace(38,45,10))
+    log10LHawidths: np.ndarray | float = 0.5
+    
+    FLAG_COMPUTE_UVLF: bool = True
+    FLAG_COMPUTE_HaLF: bool = False
+
+    ### Dust parameters for UVLFs
+    DUST_FLAG: bool = True
+    DUST_model: str = 'Bouwens13'
+    HIGH_Z_DUST = bool = True
+    _zmaxdata: float = 8.0
+    C0dust: float = 4.43
+    C1dust: float = 1.99 #4.43, 1.99 is Meurer99; 4.54, 2.07 is Overzier01
+    _kappaUV: float = _field(init=False) #SFR/LUV, value from Madau+Dickinson14, fully degenerate with epsilon
+    _kappaUV_III: float = _field(init=False) #SFR/LUV for PopIII. Assume X more efficient than PopII   
+
+    sigma_times_AUV_dust: float = 0.
+
+    def __post_init__(self):
+        schema = {
+            "DUST_FLAG": (bool, None),
+            "FLAG_RENORMALIZE_LUV": (bool, None),
+            "FLAG_COMPUTE_UVLF": (bool, None),
+            "FLAG_COMPUTE_HaLF": (bool, None),
+            "DUST_model": (str, {"Bouwens13", "Zhao24"}),
+        }
+        validate_fields(self, schema)
+
+
+        # --- normalize MUV ---
+        if np.isscalar(self.zcenter):
+            self.MUVcenters = np.array(self.MUVcenters, dtype=float)
+        else:
+            self.MUVcenters = np.atleast_1d(self.MUVcenters).astype(float)
+
+        # --- normalize MUVwidth ---
+        if np.isscalar(self.MUVwidths):
+            # broadcast scalar to same length as zcenter
+            self.MUVwidths = np.full_like(self.MUVcenters, self.MUVwidths, dtype=float)
+        else:
+            self.MUVwidths = np.atleast_1d(self.MUVwidths).astype(float)
+
+        # --- consistency check ---
+        if self.MUVwidths.shape != self.MUVcenters.shape:
+            raise ValueError(
+                f"MUVwidth shape {self.MUVwidths.shape} does not match MUVcenter shape {self.MUVcenters.shape}"
+            )
+
+        # --- normalize logLHa ---
+        if np.isscalar(self.log10LHacenters):
+            self.log10LHacenters = np.array([self.log10LHacenters], dtype=float)
+        else:
+            self.log10LHacenters = np.atleast_1d(self.log10LHacenters).astype(float)
+
+        # --- normalize logHazwidth ---
+        if np.isscalar(self.log10LHawidths):
+            # broadcast scalar to same length as zcenter
+            self.log10LHawidths = np.full_like(self.log10LHacenters, self.log10LHawidths, dtype=float)
+        else:
+            self.log10LHawidths = np.atleast_1d(self.log10LHawidths).astype(float)
+
+        # --- consistency check ---
+        if self.log10LHawidths.shape != self.log10LHacenters.shape:
+            raise ValueError(
+                f"log10Hawidth shape {self.log10LHawidths.shape} does not match log10Hacenter shape {self.log10LHacenters.shape}"
+            )
+
+        ### Dust parameters for UVLFs
+        self._kappaUV = 1.15e-28 #SFR/LUV, value from Madau+Dickinson14, fully degenerate with epsilon
+        self._kappaUV_III = self._kappaUV #SFR/LUV for PopIII. Assume X more efficient than PopII
 
 
 def validate_fields(obj, schema: dict):
