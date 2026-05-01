@@ -59,13 +59,15 @@ class LF_class:
         self.biasM = np.array([bias_Tinker(CosmoParams, HMFinterp.sigma_int(HMFinterp.Mhtab,LFParams.zcenter+dz*LFParams.zwidth)) for dz in self.DZ_TOINT])
         
         if LFParams.FLAG_COMPUTE_UVLF:
-            self.compute_LFbias_binned(CosmoParams, AstroParams, HMFinterp, LFParams, "UV", vCB_input, J21LW_interp_input)
+            temp_output = self.compute_LFbias_binned(CosmoParams, AstroParams, HMFinterp, LFParams, "UV", vCB_input, J21LW_interp_input)
+            self.UVLF_pop2_binned, self.UVbias_pop2_binned, self.UVLF_pop3_binned, self.UVbias_pop3_binned, self.UVLF_binned, self.UVbias_binned = temp_output
 
         if LFParams.FLAG_COMPUTE_HaLF:
             if AstroParams.USE_POPIII:
                 raise ValueError('PopIII are not implemented for Ha')
 
-            self.compute_LFbias_binned(CosmoParams, AstroParams, HMFinterp, LFParams, "Ha", vCB_input, J21LW_interp_input)
+            temp_output = self.compute_LFbias_binned(CosmoParams, AstroParams, HMFinterp, LFParams, "Ha", vCB_input, J21LW_interp_input)
+            self.HaLF_pop2_binned, self.Habias_pop2_binned, self.HaLF_pop3_binned, self.Habias_pop3_binned, self.HaLF_binned, self.Habias_binned = temp_output
 
 
     def Mag_of_L_ergsHz(self, L):
@@ -102,8 +104,8 @@ class LF_class:
 
         output = self.compute_pop_LFbias_binned(CosmoParams, AstroParams, HMFinterp, LFParams, pop=2, vCB=False, J21LW_interp=False, which_band=which_band)
 
-        self.LF_pop2_binned = output[0]
-        self.bias_pop2_binned = output[1]
+        LF_pop2_binned = output[0]
+        bias_pop2_binned = output[1]
 
         if AstroParams.USE_POPIII:
             if not vCB_input:
@@ -117,19 +119,19 @@ class LF_class:
                 J21LW_interp = J21LW_interp_input
 
             outputIII = self.compute_pop_LFbias_binned(CosmoParams, AstroParams, HMFinterp, LFParams, pop=3, vCB=vCB, J21LW_interp=J21LW_interp, which_band=which_band)
-            self.LF_pop3_binned= outputIII[0]
-            self.bias_pop3_binned= outputIII[1]
+            LF_pop3_binned= outputIII[0]
+            bias_pop3_binned= outputIII[1]
 
         else: 
-            self.LF_pop3_binned = np.zeros_like(self.LF_pop2_binned)
-            self.bias_pop3_binned = np.zeros_like(self.bias_pop2_binned)
+            LF_pop3_binned = np.zeros_like(LF_pop2_binned)
+            bias_pop3_binned = np.zeros_like(bias_pop2_binned)
 
 
-        self.LF_binned = self.LF_pop2_binned + self.LF_pop3_binned
-        self.bias_binned = self.bias_pop2_binned + self.bias_pop3_binned
+        LF_binned = LF_pop2_binned + LF_pop3_binned
+        bias_binned = bias_pop2_binned + bias_pop3_binned
 
-
-        return 1 
+        
+        return LF_pop2_binned, bias_pop2_binned, LF_pop3_binned, bias_pop3_binned, LF_binned, bias_binned
             
 
     def compute_pop_LFbias_binned(self, CosmoParams, AstroParams, HMFinterp, LFParams, pop, which_band, vCB=False, J21LW_interp=False):
