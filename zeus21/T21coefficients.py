@@ -26,6 +26,7 @@ from scipy import interpolate
 from .sfrd import Z_init, SFRD_class, PopIII_relvel
 from .reionization import reionization_global
 
+from .SED import SED_LyA, SED_XRAY
 
 class LyAlpha_class:
 
@@ -40,7 +41,7 @@ class LyAlpha_class:
         self.coeff1LyAzp = (1+z_Init.zintegral)**2/(4*np.pi)
 
         nuLYA = np.geomspace(constants.freqLyA, constants.freqLyCont, 128)
-        sedLYAII_interp = interpolate.interp1d(nuLYA, AstroParams.SED_LyA(nuLYA, pop = 2), kind = 'linear', bounds_error = False, fill_value = 0) #interpolate LyA SED
+        sedLYAII_interp = interpolate.interp1d(nuLYA, SED_LyA(nuLYA, pop = 2), kind = 'linear', bounds_error = False, fill_value = 0) #interpolate LyA SED
 
         n_recArray = np.arange(0,constants.n_max_recycle-1 )
         zpCube, rCube, n_recCube = np.meshgrid(z_Init.zintegral, CosmoParams._Rtabsmoo, n_recArray, indexing='ij', sparse=True) #for broadcasting purposes
@@ -64,7 +65,7 @@ class LyAlpha_class:
         self.coeff2LyAzpRR_II = CosmoParams._Rtabsmoo * CosmoParams._dlogRR * SFRD_Init.SFRDbar2D_II * LyAintegral_II/ constants.yrTos/constants.Mpctocm**2
 
         if AstroParams.USE_POPIII:
-            sedLYAIII_interp = interpolate.interp1d(nuLYA, AstroParams.SED_LyA(nuLYA, pop = 3), kind = 'linear', bounds_error = False, fill_value = 0)
+            sedLYAIII_interp = interpolate.interp1d(nuLYA, SED_LyA(nuLYA, pop = 3), kind = 'linear', bounds_error = False, fill_value = 0)
             eps_alphaRR_III_Cube = AstroParams.N_alpha_perbaryon_III/CosmoParams.mu_baryon_Msun  * sedLYAIII_interp(nu_lineRRCube)
             
             Jalpha_III = np.array(constants.fractions_recycle)[:len(n_recArray)].reshape(1,1,len(n_recArray)) * weights_recCube * eps_alphaRR_III_Cube
@@ -107,8 +108,8 @@ class Xrays_class:
 
         zpCube, rCube, eCube, zPPCube = np.meshgrid(z_Init.zintegral, CosmoParams._Rtabsmoo, _Energylist, np.arange(Nzinttau), indexing='ij', sparse=True)
         currentEnergyTable = eCube * (1+zGreaterCube) / (1+zpCube)
-        SEDCube = AstroParams.SED_XRAY(currentEnergyTable, pop = 2)
-        SEDCube_III = AstroParams.SED_XRAY(currentEnergyTable, pop = 3)
+        SEDCube = SED_XRAY(AstroParams, currentEnergyTable, pop = 2)
+        SEDCube_III = SED_XRAY(AstroParams, currentEnergyTable, pop = 3)
 
         ######## Broadcasted routine to find X-ray optical depths, modeled after but does not use xrays.optical_depth
         zPPCube = np.array([np.linspace(np.transpose([z_Init.zintegral]), z_Init.zGreaterMatrix, Nzinttau, axis = 2)])

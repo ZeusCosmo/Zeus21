@@ -98,7 +98,7 @@ _MAGMAX_UV = 10. #max abs magnitude to avoid infs
 _MAGMIN_Ha = -50. #max abs magnitude to avoid infs
 NZ_TOINT = 3 #how many zs around <z> with z_rms we use to predict. Only in HMF since the rest do not vary much.
 
-LUV1500A_toMUV = 51.63 # pivot value for UV to luminosity conversion
+zeropoint_ABmag_ergsHz = 51.63 # pivot value for specific luminosity (erg/s/Hz) to magnitude conversion -- constant flat in wavelength
 
 # SarahLibanore
 zmax_AstroBreak = 50. # max redshift above which we do not trust astro computation

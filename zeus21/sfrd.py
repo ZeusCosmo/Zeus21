@@ -124,44 +124,6 @@ class SFRD_class:
             self.compute_gamma(CosmoParams, AstroParams, HMFinterp, z_Init.zintegral, CosmoParams._Rtabsmoo, HMFinterp.Mhtab, self.sigmaofRtab, self.fesctab_II)
             
 
-    #fstar = Mstardot/Mhdot, parametrizes as you wish
-    def fstarofz_II(self, CosmoParams, AstroParams, z, Mhlist):
-        eps = AstroParams.epsstar
-        dlog10eps = AstroParams.dlog10epsstardz
-        zpiv = AstroParams._zpivot
-        Mc = AstroParams.Mc
-        alphastar = AstroParams.alphastar
-        betastar = AstroParams.betastar
-
-        epsstar_ofz = eps * 10**(dlog10eps * (z-zpiv) )
-        
-        if CosmoParams.Flag_emulate_21cmfast:
-            return CosmoParams.OmegaB/CosmoParams.OmegaM * np.clip(epsstar_ofz /(pow(Mhlist/Mc, -alphastar)), 0, AstroParams.fstarmax)
-
-        else:
-            return CosmoParams.OmegaB/CosmoParams.OmegaM * np.clip(2.0 * epsstar_ofz\
-            /(pow(Mhlist/Mc,- alphastar) + pow(Mhlist/Mc,-betastar) ), 0, AstroParams.fstarmax)
-
-
-    # popIII fstar = Mstardot/Mhdot, parametrizes as you wish
-    def fstarofz_III(self, CosmoParams, AstroParams, z, Mhlist):
-
-        eps = AstroParams.fstar_III
-        dlog10eps = AstroParams.dlog10epsstardz_III
-        zpiv = AstroParams._zpivot_III
-        Mc = AstroParams.Mc_III
-        alphastar = AstroParams.alphastar_III 
-        betastar = AstroParams.betastar_III
-
-        epsstar_ofz = eps * 10**(dlog10eps * (z-zpiv) )
-        
-        if CosmoParams.Flag_emulate_21cmfast:
-            return CosmoParams.OmegaB/CosmoParams.OmegaM * np.clip(epsstar_ofz /(pow(Mhlist/Mc, -alphastar)), 0, AstroParams.fstarmax)
-
-        else:
-            return CosmoParams.OmegaB/CosmoParams.OmegaM * np.clip(2.0 * epsstar_ofz\
-            /(pow(Mhlist/Mc,- alphastar) + pow(Mhlist/Mc,-betastar) ), 0, AstroParams.fstarmax)
-
     def Matom(self, z):
         "Returns Matom as a function of z"
         return 3.3e7 * pow((1.+z)/(21.),-3./2)
@@ -190,32 +152,6 @@ class SFRD_class:
         lwFeedback = 1 + AstroParams.A_LW*pow(J21LW_interp(z), AstroParams.beta_LW)
         
         return mmolBase * vcbFeedback * lwFeedback
-
-
-    def fduty(self, CosmoParams, AstroParams, massVector, z, pop, vCB, J21LW_interp):
-
-        if pop == 2:
-            #The FIXED/SHARP routine below only applies to Pop II, not to Pop III
-            if AstroParams.USE_POPIII:
-                fduty = np.exp(-self.Matom(z)/massVector) 
-
-            else:
-
-                if not AstroParams.FLAG_MTURN_FIXED:
-                    fduty = np.exp(-self.Matom(z)/massVector) 
-                elif not AstroParams.FLAG_MTURN_SHARP: #whether to do regular exponential turn off or a sharp one at Mturn
-                    fduty = np.exp(-AstroParams.Mturn_fixed/massVector)
-                else:
-                    fduty = np.heaviside(massVector - AstroParams.Mturn_fixed, 0.5)
-
-
-        elif pop == 3:
-
-            duty_matom_component = np.exp(-massVector/self.Matom(z)) 
-
-            fduty =  np.exp(-self.Mmol(CosmoParams, AstroParams, J21LW_interp, z, vCB)/massVector) * duty_matom_component 
-
-        return fduty
 
 
     def dMh_dt(self, CosmoParams, AstroParams, HMFinterp, massVector, z):
@@ -249,20 +185,123 @@ class SFRD_class:
             return massVector/AstroParams.tstar*cosmology.Hubinvyr(CosmoParams,z)
 
 
+    def fstar_ofz(self, CosmoParams, z, massVector, eps, dlog10eps, zpiv, Mc, alphastar, betastar, fstarmax):  # AV: does not care about population, and it can be a single power law with alphastar = 0
+
+        epsstar_ofz = eps * 10**(dlog10eps * (z-zpiv))
+
+        if CosmoParams.Flag_emulate_21cmfast:
+            return CosmoParams.OmegaB/CosmoParams.OmegaM * np.clip(epsstar_ofz\
+            /(pow(massVector/Mc, -alphastar)), 0, fstarmax)
+
+        else:
+            return CosmoParams.OmegaB/CosmoParams.OmegaM * np.clip(2.0 * epsstar_ofz\
+            /(pow(massVector/Mc,- alphastar) + pow(massVector/Mc,-betastar)), 0, fstarmax)
+        
+
+    def fduty(self, CosmoParams, AstroParams, massVector, z,  lower_cutoff=False, upper_cutoff=False, is_sharp_cutoff=False,  vCB=False, J21LW_interp=False):  # AV: exp/heaviside cutoff at the low-mass end, high-mass end, or both
+
+        if lower_cutoff:
+            if lower_cutoff == "Mmol":
+                Mlow = self.Mmol(CosmoParams, AstroParams, J21LW_interp, z, vCB)
+            elif lower_cutoff == "Matom":
+                Mlow = self.Matom(z)
+            else:
+                Mlow = lower_cutoff
+
+            if is_sharp_cutoff:
+                fduty_low = np.heaviside(massVector - Mlow, 0.5)
+            else:
+                fduty_low = np.exp(-Mlow/massVector)
+        else:
+            fduty_low = 1.
+
+
+        if upper_cutoff:
+            if upper_cutoff == "Matom":
+                Mup = self.Matom(z)
+            else:
+                Mup = upper_cutoff
+
+            if is_sharp_cutoff:
+                fduty_up = np.heaviside(Mup - massVector, 0.5)
+            else:
+                fduty_up = np.exp(-massVector/Mup)
+        else:
+            fduty_up = 1.
+
+
+        return fduty_low * fduty_up
+        
+
+    def SFE_II(self, CosmoParams, AstroParams, massVector, z):  # AV: std Pop II case (old default)
+
+        fstarM = self.fstar_ofz(CosmoParams, z, massVector,   
+                                AstroParams.epsstar, AstroParams.dlog10epsstardz, AstroParams._zpivot, 
+                                AstroParams.Mc, AstroParams.alphastar, AstroParams.betastar, AstroParams.fstarmax)
+
+        if not AstroParams.FLAG_MTURN_FIXED:
+            fduty = self.fduty(CosmoParams, AstroParams, massVector, z, lower_cutoff="Matom", upper_cutoff=False, is_sharp_cutoff=AstroParams.FLAG_MTURN_SHARP)
+        else:
+            fduty = self.fduty(CosmoParams, AstroParams, massVector, z, lower_cutoff=AstroParams.Mturn_fixed, upper_cutoff=False, is_sharp_cutoff=AstroParams.FLAG_MTURN_SHARP)
+
+        return fstarM * fduty
+    
+
+    def SFE_III(self, CosmoParams, AstroParams, massVector, z, vCB, J21LW_interp):  # AV: Def. behaviour is to have just the minihalo component, but we can add an additional ACH component
+
+        eps = AstroParams.epsstar_III  # TODO: fstar_III to epssstar_III?
+        dlog10eps = AstroParams.dlog10epsstardz_III
+        zpiv = AstroParams._zpivot_III
+        Mc = AstroParams.Mc_III
+        alphastar = AstroParams.alphastar_III  # TODO: decide if we want to keep (same for ACH component)
+        betastar = AstroParams.betastar_III
+        fstarM = self.fstar_ofz(CosmoParams, z, massVector, 
+                                eps, dlog10eps, zpiv,
+                                Mc, alphastar, betastar, AstroParams.fstarmax)
+        fduty = self.fduty(CosmoParams, AstroParams, massVector, z,  lower_cutoff="Mmol", upper_cutoff="Matom", is_sharp_cutoff=False,  vCB=vCB, J21LW_interp=J21LW_interp)  # TODO: Do we want to allow the cut-off to not be sharp? 
+        SFE = fstarM * fduty
+
+        if AstroParams.USE_POPIII_ACH:
+            if not AstroParams.DETACH_III_ACH:
+                eps_ACH = eps  # TODO: check consistency with MC component (defined at pivot mass?)
+                dlog10eps_ACH = dlog10eps
+                zpiv_ACH = zpiv
+                Mc_ACH = Mc
+                betastar_ACH = betastar
+            else:
+                eps_ACH = AstroParams.epssstar_III_ACH
+                dlog10eps_ACH = AstroParams.dlog10epsstardz_III_ACH
+                zpiv_ACH = AstroParams._zpivot_III_ACH
+                Mc_ACH = AstroParams.Mc_III_ACH
+                alphastar_ACH = AstroParams.alphastar_III_ACH
+                betastar_ACH = AstroParams.betastar_III_ACH       
+                 
+            fstarM_ACH = self.fstar_ofz(CosmoParams, z, massVector,
+                                        eps_ACH, dlog10eps_ACH, zpiv_ACH,
+                                        Mc_ACH, alphastar_ACH, betastar_ACH, AstroParams.fstarmax)
+            fduty_ACH = self.fduty(CosmoParams, AstroParams, massVector, z,  lower_cutoff="Matom", upper_cutoff=AstroParams.Mup_III, is_sharp_cutoff=False)
+            SFE_ACH = fstarM_ACH * fduty_ACH
+        else:
+            SFE_ACH = np.zeros_like(SFE)
+
+        return SFE + SFE_ACH
+
+
+    def SFE(self, CosmoParams, AstroParams, massVector, z, pop, vCB = False, J21LW_interp = False):  # AV: extracted from former SFR to generalize
+
+        if (pop == 3 and not AstroParams.USE_POPIII):
+            return 0  # skip whole routine if NOT using PopIII stars
+        
+        if pop == 2:
+            return self.SFE_II(CosmoParams, AstroParams, massVector, z)
+        else:
+            return self.SFE_III(CosmoParams, AstroParams, massVector, z, vCB, J21LW_interp)
+    
+
     def SFR(self, CosmoParams, AstroParams, HMFinterp, massVector, z, pop, vCB = False, J21LW_interp = False):
         "SFR in Msun/yr at redshift z. Evaluated at the halo masses Mh [Msun] of the HMFinterp, given AstroParams"
         
-        if (pop == 3 and not AstroParams.USE_POPIII):
-            return 0 #skip whole routine if NOT using PopIII stars
-        
-        if pop == 2:
-            fstarM = self.fstarofz_II(CosmoParams, AstroParams, z, massVector)
-        else:
-            fstarM = self.fstarofz_III(CosmoParams, AstroParams, z, massVector)
-
-        fduty = self.fduty(CosmoParams, AstroParams, massVector, z, pop, vCB, J21LW_interp)
-        
-        return self.dMh_dt(CosmoParams, AstroParams, HMFinterp, massVector, z)  * fstarM * fduty
+        return self.dMh_dt(CosmoParams, AstroParams, HMFinterp, massVector, z) * self.SFE(CosmoParams, AstroParams, massVector, z, pop, vCB, J21LW_interp)
 
 
     def SFRD_integrand(self, CosmoParams, AstroParams, HMFinterp, massVector, z, pop, vCB = False, J21LW_interp = False):

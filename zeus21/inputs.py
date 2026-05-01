@@ -18,6 +18,8 @@ import numpy as np
 from classy import Class
 from scipy.interpolate import interp1d
 import mcfit
+from scipy.integrate import cumulative_trapezoid
+
 
 
 @dataclass(kw_only=True)
@@ -279,6 +281,8 @@ class Cosmo_Parameters:
     delta_crit_ST: float = _field(init=False)
     a_corr_EPS: float = _field(init=False)
 
+    tageofzMyr: interp1d = _field(init=False)
+    zfoftageMyr: interp1d = _field(init=False)
 
     def __post_init__(self, UserParams):
      
@@ -301,6 +305,18 @@ class Cosmo_Parameters:
         self.OmegaB = self.ClassCosmo.Omega_b()
         self.rho_M0 = self.OmegaM * self.rhocrit
         
+        _zlistforage = np.logspace(5,-3,10000)
+        _zlistforage[-1]=0.0
+        _Hztab = self.ClassCosmo.z_of_r(_zlistforage)[1] #chi and dchi/dz
+        
+        ### TODO: check if this is the same as cosmic time in cosmology 
+        tagetabyr = -cumulative_trapezoid(constants.Mpctoyr/_Hztab/(1+_zlistforage),_zlistforage)
+        tagetabyr = np.insert(tagetabyr,0,0)
+
+        self.tageofzMyr = interp1d(_zlistforage,tagetabyr/1e6) #interpolators for age in Myr as a function of z
+        self.zfoftageMyr = interp1d(tagetabyr/1e6,_zlistforage) #and it's inverse, z for age t in Myr
+
+
         self.z_rec = self.ClassCosmo.get_current_derived_parameters(['z_rec'])['z_rec']
         
         ### v_cb flag
@@ -622,16 +638,6 @@ class Astro_Parameters:
         FLAG_MTURN_FIXED: bool
             Whether to fix Mturn or use Matom(z) at each z. Set by zeus21 depending on Mturn_fixed.
     
-    Methods
-    ----------
-        SED_XRAY
-            SED of our Xray sources. Takes energy En in eV.
-            Normalized to integrate to 1 from E0_xray to Emax_xray (int dE E * SED(E).
-            E*SED is the power-law with index alpha_xray, so the output is divided by 1/E at the end to return number). 
-        SED_LyA
-            SED of our Lyman-alpha-continuum sources.
-            Normalized to integrate to 1 (int d nu SED(nu), so SED is number per units energy (as opposed as E*SED, what was for Xrays).
-
     """
     ### Non-default parameters
     CosmoParams: InitVar[Cosmo_Parameters]
@@ -644,7 +650,7 @@ class Astro_Parameters:
     USE_LW_FEEDBACK: bool = True
     quadratic_SFRD_lognormal: bool = True
 
-    # SFR(Mh) parameters 
+    # SFR(Mh) parameters - popII
     epsstar: float = 0.1
     dlog10epsstardz: float = 0.0 
     alphastar: float = 0.5
@@ -652,12 +658,24 @@ class Astro_Parameters:
     Mc: float = 3e11
     _zpivot: float = _field(init=False)
     fstarmax: float = _field(init=False)
-    alphastar_III: float = 0
-    betastar_III: float = 0
-    fstar_III: float = 10**(-2.5)
-    Mc_III: float = 1e7
+
+    # SFR(Mh) parameters - popIII 
+    epsstar_III: float = 10**(-2.5)
     dlog10epsstardz_III: float = 0.0
+    alphastar_III: float = 0.
+    betastar_III: float = 0.
+    Mc_III: float = 1e7
     _zpivot_III: float = _field(init=False)
+
+    # SFR(Mh) parameters - popIII Atomic Cooling Component
+    USE_POPIII_ACH: bool = False
+    DETACH_III_ACH: bool = False
+    epsstar_III_ACH: float = 0.
+    dlog10epsstardz_III_ACH: float = 0.0
+    alphastar_III_ACH: float = 0.
+    betastar_III_ACH: float = 0.
+    Mc_III_ACH: float = 1e7
+    _zpivot_III_ACH: float = _field(init=False)
 
     # Lyman-alpha parameters
     N_alpha_perbaryon_II: float = 9690 
@@ -710,18 +728,38 @@ class Astro_Parameters:
     
     # BURSTINESS
     FLAG_USE_PSD: bool = False
-
-
+    FLAG_COMPARE_BAGPIPES: bool = False
+    SEDMODEL: str = "BPASS"
+    sigmaPSD: float = 0.5,
+    dsigmaPSDdlog10Mh: float = 0.0,
+    tauPSD: float = 10.0, 
+    dlog10tauPSDdlog10Mh: float = 0.0,
+    _tcut_LUV_short: float = 30.0 #where we separate LUV short and long, in Myr, 30 Myr or 2*tau, whichever longer 
+    FLAG_RENORMALIZE_AVG_SFH: bool = True
+    _minsigmaPSD: float = _field(init=False)
+    _maxsigmaPSD: float = _field(init=False)
+    _mintauPSD: float = _field(init=False)
+    _maxtauPSD: float = _field(init=False)
+    _tagesMyr: float = _field(init=False)
+    _dt_FFT: float = _field(init=False)
+    _N_FFT: float = _field(init=False)
+    _omegamin: float = _field(init=False)
+    _omegamax: float = _field(init=False)
 
     def __post_init__(self, CosmoParams):
 
         schema = {
             "accretion_model": (str, {"EPS", "exp"}),
             "USE_POPIII": (bool, None),
+            "USE_POPIII_ACH": (bool, None),
+            "DETACH_III_ACH": (bool, None),
             "USE_LW_FEEDBACK": (bool, None),
             "quadratic_SFRD_lognormal": (bool, None),
             "FLAG_MTURN_SHARP": (bool, None),
             "FLAG_USE_PSD": (bool, None),
+            "FLAG_COMPARE_BAGPIPES": (bool, None),
+            "FLAG_RENORMALIZE_AVG_SFH": (bool, None),
+            "SEDMODEL": (str, {"bagpipes", "BPASS_binaries", "BPASS"}),
         }
         validate_fields(self, schema)
 
@@ -735,6 +773,7 @@ class Astro_Parameters:
         # SFR(Mh) parameters
         self._zpivot = 8.0 # fixed, at which z we evaluate eps and dlogeps/dz
         self._zpivot_III = 8.0  # fixed, at which z we evaluate eps and dlogeps/dz
+        self._zpivot_III_ACH = 8.0  # fixed, at which z we evaluate eps and dlogeps/dz
         self.fstarmax = 1.0 # where we cap it
         
         # Xray parameters
@@ -785,62 +824,25 @@ class Astro_Parameters:
             self.FLAG_MTURN_FIXED = True # whether to fix Mturn or use Matom(z) at each z
 
 
+        self._minsigmaPSD = 0.1 #minimum sigma for the PSD, to avoid numerical issues in the FFT
+        self._maxsigmaPSD = 4.0 #maximum sigma for the PSD, there'll never be enough samples if sigma>~6-10
+        self._mintauPSD = 1.0 # Myrminimum tau for the PSD, to avoid numerical issues in the FFT
+        self._maxtauPSD = 300.0        
+
+        self._tagesMyr = np.logspace(-2, 3, 79) #times (ages) we integrate over at each z, Mh, in Myr (TODO: add precisionboost)
 
 
-    def SED_XRAY(self, En, pop = 0): #pop set to zero as default, but it must be set to either 2 or 3
-        "SED of our Xray sources, normalized to integrate to 1 from E0_xray to Emax_xray (int dE E * SED(E), and E*SED is the power-law with index alpha_xray, so the output is divided by 1/E at the end to return number). Takes energy En in eV"
-        if pop == 2:
-            alphaX = self.alpha_xray
-        elif pop == 3:
-            alphaX = self.alpha_xray_III
-        else:
-            print("Must set pop to either 2 or 3!")
-            
-        if np.abs(alphaX + 1.0) < 0.01: #log
-            norm = 1.0/np.log(self.Emax_xray_norm/self.E0_xray) / self.E0_xray
-        else:
-            norm = (1.0 + alphaX)/((self.Emax_xray_norm/self.E0_xray)**(1 + alphaX) - 1.0) / self.E0_xray
-
-        return np.power(En/self.E0_xray, alphaX)/En * norm * np.heaviside(En - self.E0_xray, 0.5)
-        #do not cut at higher energies since they redshift into <2 keV band
-
-    def SED_LyA(self, nu_in, pop = 0): #default pop set to zero so python doesn't complain, but must be 2 or 3 for this to work
-        "SED of our Lyman-alpha-continuum sources, normalized to integrate to 1 (int d nu SED(nu), so SED is number per units energy (as opposed as E*SED, what was for Xrays) "
-
-        nucut = constants.freqLyB #above and below this freq different power laws
-        if pop == 2:
-            amps = np.array([0.68,0.32]) #Approx following the stellar spectra of BL05. Normalized to unity
-            indexbelow = 0.14 #if one of them zero worry about normalization
-            normbelow = (1.0 + indexbelow)/(1.0 - (constants.freqLyA/nucut)**(1 + indexbelow)) * amps[0]
-            indexabove = -8.0
-            normabove = (1.0 + indexabove)/((constants.freqLyCont/nucut)**(1 + indexabove) - 1.0) * amps[1]
-        elif pop == 3:
-            amps = np.array([0.56,0.44]) #Approx following the stellar spectra of BL05. Normalized to unity
-            indexbelow = 1.29 #if one of them zero worry about normalization
-            normbelow = (1.0 + indexbelow)/(1.0 - (constants.freqLyA/nucut)**(1 + indexbelow)) * amps[0]
-            indexabove = 0.2
-            normabove = (1.0 + indexabove)/((constants.freqLyCont/nucut)**(1 + indexabove) - 1.0) * amps[1]
-        else:
-            print("Must set pop to 2 or 3!")
-            
-        nulist = np.asarray([nu_in]) if np.isscalar(nu_in) else np.asarray(nu_in)
-
-        result = np.zeros_like(nulist)
-        for inu, currnu in enumerate(nulist):
-            if (currnu<constants.freqLyA or currnu>=constants.freqLyCont):
-                result[inu] = 0.0
-            elif (currnu < nucut): #between LyA and LyB
-                result[inu] = normbelow * (currnu/nucut)**indexbelow
-            elif (currnu >= nucut):  #between LyB and Continuum
-                result[inu] = normabove * (currnu/nucut)**indexabove
-            else:
-                print("Error in SED_LyA, whats the frequency Kenneth?")
+        self._dt_FFT = 0.3 # FFT timescale resolution, Myr, high to resolve the PS_SFR and window functions well (TODO: add UserParams precisionboost here)
+        self._N_FFT = int(512/(self._dt_FFT/0.3))  # Recommend to use power of 2 for efficient FFT, resolve up to ~0.5Gyr at least
 
 
-        return result/nucut #extra 1/nucut because dnu, normalizes the integral
-        
+        self._omegamin = 2*np.pi/1e3
+        self._omegamax  = np.pi/1.0
+
+
+
 @dataclass(kw_only=True)
-class LF_Params:
+class LF_Parameters:
     '''
         sigmaUV: float
             Stochasticity (gaussian rms) in the halo-galaxy connection P(MUV | Mh). Default is 0.5.
@@ -871,7 +873,7 @@ class LF_Params:
     ### Dust parameters for UVLFs
     DUST_FLAG: bool = True
     DUST_model: str = 'Bouwens13'
-    HIGH_Z_DUST = bool = True
+    HIGH_Z_DUST: bool = True
     _zmaxdata: float = 8.0
     C0dust: float = 4.43
     C1dust: float = 1.99 #4.43, 1.99 is Meurer99; 4.54, 2.07 is Overzier01
@@ -886,6 +888,7 @@ class LF_Params:
             "FLAG_RENORMALIZE_LUV": (bool, None),
             "FLAG_COMPUTE_UVLF": (bool, None),
             "FLAG_COMPUTE_HaLF": (bool, None),
+            "HIGH_Z_DUST": (bool, None),
             "DUST_model": (str, {"Bouwens13", "Zhao24"}),
         }
         validate_fields(self, schema)
