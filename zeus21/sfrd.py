@@ -36,7 +36,7 @@ class Z_init:
         Nzintegral = np.ceil(1.0 + np.log(zmax_integral/zmin_integral)/UserParams.dlogzint_target).astype(int)
         
         self.dlogzint = np.log(zmax_integral/zmin_integral)/(Nzintegral-1.0) #exact value rather than input target above
-        self.zintegral = np.logspace(np.log10(zmin_integral), np.log10(zmax_integral), Nzintegral) #note these are also the z at which we "observe", to share computational load
+        self.zintegral = np.geomspace(zmin_integral, zmax_integral, Nzintegral) #note these are also the z at which we "observe", to share computational load
         
         #define table of redshifts 
         rGreaterMatrix = np.transpose([CosmoParams.chiofzint(self.zintegral)]) + CosmoParams._Rtabsmoo
@@ -462,9 +462,6 @@ class SFRD_class:
             self.gamma_III_index2D = np.zeros_like(self.gamma_II_index2D)
             self.gamma2_III_index2D = np.zeros_like(self.gamma2_II_index2D)
 
-        gamma_II_index2D_Lag = self.gamma_II_index2D - 1.
-        gamma_III_Lagrangian = self.gamma_III_index2D - 1.
-
 
         ### LW correction to Pop III gammas
         if AstroParams.USE_POPIII:
@@ -491,7 +488,10 @@ class SFRD_class:
                 self.deltaGamma_R_z[ self.gamma_III_index2D == 0 ] = 0 #don't correct gammas if gammas are zero
                 self.gamma_III_index2D += self.deltaGamma_R_z #correct Pop III gammas with LW correction factor
 
+
         # Non-Linear Correction Factors
+        gamma_II_index2D_Lag = self.gamma_II_index2D - 1.
+        gamma_III_Lagrangian = self.gamma_III_index2D - 1.
         if AstroParams.quadratic_SFRD_lognormal:
             gamma2_II_index2D_Lag = self.gamma2_II_index2D + 1/2. 
             _corrfactorEulerian_II = (1+(gamma_II_index2D_Lag-2*gamma2_II_index2D_Lag)*self.sigmaofRtab**2)/(1-2*gamma2_II_index2D_Lag*self.sigmaofRtab**2)
