@@ -8,6 +8,8 @@ UT Austin and Harvard CfA - January 2023
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
 
+Edited by Sarah Libanore
+BGU, - April 2026 
 """
 
 ###############################
@@ -97,3 +99,12 @@ MU_LoS = 1.0 #only fully LoS modes
 _MAGMAX = 10 #max abs magnitude to avoid infs
 FLAG_RENORMALIZE_LUV = False #whether to renormalize the lognormal LUV with sigmaUV to recover <LUV> or otherwise <MUV>. Recommend False.
 NZ_TOINT = 3 #how many zs around <z> with z_rms we use to predict. Only in HMF since the rest do not vary much.
+
+# SarahLibanore
+zmax_AstroBreak = 50. # max redshift above which we do not trust astro computation
+
+redshiftFactor_Visbal = 1.04 #max amount LW photons can redshift before being scattered, as in Visbal+1402.0882
+
+a_Hirata = 2.98394
+b_Hirata = 1.53583
+c_Hirata = 3.8528
