@@ -128,7 +128,7 @@ class LF:
 
             if which_band == "UV":
 
-                SFRlist = self.SFRD_Init.SFR(AstroParams, CosmoParams, HMFinterp, HMFinterp.Mhtab, LFParams.zcenter, pop, vCB, J21LW_interp)   
+                SFRlist = self.SFRD_Init.SFR(CosmoParams, AstroParams, HMFinterp, HMFinterp.Mhtab, LFParams.zcenter, pop, vCB, J21LW_interp)   
 
                 sigma_dex = LFParams.sigmaUV  
 
