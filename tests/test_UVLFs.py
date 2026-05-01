@@ -11,7 +11,9 @@ import pytest
 import zeus21
 import numpy as np
 
-from zeus21.UVLFs import UVLF_binned, MUV_of_SFR, AUV, beta
+from zeus21.LFs import UVLF_binned, MUV_of_SFR, AUV, beta
+
+
 
 def test_MUV_of_SFR():
     """Test the conversion from SFR to UV magnitudes"""
