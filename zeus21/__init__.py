@@ -8,7 +8,6 @@ from .maps import *
 
 from .LFs import *
 from .bursty_sfh import * 
-from .maps import CoevalMaps
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning) #to silence unnecessary warning in mcfit
