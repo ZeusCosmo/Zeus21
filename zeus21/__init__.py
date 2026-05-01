@@ -4,6 +4,7 @@ from .cosmology import *
 from .correlations import *
 from .sfrd import *
 from .T21coefficients import * 
+from .maps import *
 
 from .LFs import *
 from .bursty_sfh import * 

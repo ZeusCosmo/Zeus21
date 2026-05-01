@@ -30,6 +30,40 @@ def cosmo_wrapper(User_Parameters):
     return CosmoParams, HMFintclass
 
 
+
+
+def time_at_redshift(ClassyCosmo,z):
+    """
+    Returns the age of the Universe (in Gyrs) corresponding to a given redshift.
+
+    Parameters
+    ----------
+    ClassyCosmo: zeus21.runclass class
+        Sets up Class cosmology.
+    z: float
+        Redshift.
+    """
+    background = ClassyCosmo.get_background()
+    classy_t, classy_z = background['proper time [Gyr]'], background['z']
+    classy_tinterp = interp1d(classy_z, classy_t)
+    return classy_tinterp(z)
+
+def redshift_at_time(ClassyCosmo,t):
+    """
+    Returns the redshift corresponding to a given age of the Universe (in Gyrs).
+
+    Parameters
+    ----------
+    ClassyCosmo: zeus21.runclass class
+        Sets up Class cosmology.
+    t: float
+        Age in Gyrs.
+    """
+    background = ClassyCosmo.get_background()
+    classy_t, classy_z = background['proper time [Gyr]'], background['z']
+    classy_tinterp = interp1d(classy_t, classy_z)
+    return classy_tinterp(t)
+
 def Hub(Cosmo_Parameters, z):
 #Hubble(z) in km/s/Mpc
     return Cosmo_Parameters.h_fid * 100 * np.sqrt(Cosmo_Parameters.OmegaM * pow(1+z,3.)+Cosmo_Parameters.OmegaR * pow(1+z,4.)+Cosmo_Parameters.OmegaL)

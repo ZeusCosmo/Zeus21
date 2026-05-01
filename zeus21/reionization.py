@@ -308,7 +308,11 @@ class reionization_global:
         barriermin = np.diagonal(self.barrier_zR_int(z[:, None], (R_pivot*0.9)[None, :]))
         return barriermin - sigmin**2 * self.B_1(z)
     
-    def B(self, z, R, sig):
+    def B(self, z, R, sig=None):
+        z = np.atleast_1d(z)
+        if sig is None:
+            R = np.atleast_1d(R)
+            sig = self.sigma_zR_int(z[:, None], R[None, :])
         B0 = self.B_0(z)
         B1 = self.B_1(z)
         return B0[:, None] + B1[:, None]*sig**2
