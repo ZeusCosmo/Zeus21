@@ -389,7 +389,7 @@ class Power_Spectra:
 
             dummyMesh, RtabsmooMesh, kWinAlphaMesh = np.meshgrid(T21_coefficients.zintegral, Cosmo_Parameters._Rtabsmoo, _kwinalpha, indexing = 'ij', sparse = True)
 
-            _win_alpha = coeffRgammaRmatrix * z21_utilities._WinTH(RtabsmooMesh, kWinAlphaMesh, WINDOWTYPE = 'TOPHAT')
+            _win_alpha = coeffRgammaRmatrix * z21_utilities._WinTH(RtabsmooMesh, kWinAlphaMesh)
             _win_alpha = np.sum(_win_alpha, axis = 1)
 
         _win_alpha *= np.array([coeffzp*coeffJaxa]).T
