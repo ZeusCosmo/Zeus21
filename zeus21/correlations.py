@@ -22,168 +22,35 @@ import numexpr as ne
 
 from . import constants
 from . import cosmology
-
-
-
-class Correlations:
-    "Class that calculates and keeps the correlation functions."
-
-    def __init__(self, UserParams, Cosmo_Parameters):
-
-
-        #we choose the k to match exactly the log FFT of input Rtabsmoo.
-
-        self._klistCF, _dummy_ = mcfit.xi2P(Cosmo_Parameters._Rtabsmoo, l=0, lowring=True)(0*Cosmo_Parameters._Rtabsmoo, extrap=False)
-        self.NkCF = len(self._klistCF)
-
-        self._PklinCF = np.zeros(self.NkCF) # P(k) in 1/Mpc^3
-        for ik, kk in enumerate(self._klistCF):
-            self._PklinCF[ik] = Cosmo_Parameters.ClassCosmo.pk(kk, 0.0) # function .pk(k,z)
-
-
-
-        self._xif = mcfit.P2xi(self._klistCF, l=0, lowring=True)
-
-        self.WINDOWTYPE = 'TOPHAT'
-        #options are 'TOPHAT', 'TOPHAT1D' and 'GAUSS' (for now). TOPHAT is calibrated for EPS, but GAUSS has less ringing
-
-        self.xi_RR_CF = self.get_xi_R1R2(Cosmo_Parameters, field = 'delta')
-        Cosmo_Parameters.ClassCosmo.pars['xi_RR_CF'] = np.copy(self.xi_RR_CF) #store correlation function for gamma_III correction in SFRD
-
-        ###HAC: Interpolated object for eta power spectrum
-        if Cosmo_Parameters.USE_RELATIVE_VELOCITIES == True:
-            P_eta_interp = interp1d(Cosmo_Parameters.ClassCosmo.pars['k_eta'], Cosmo_Parameters.ClassCosmo.pars['P_eta'], bounds_error = False, fill_value = 0)
-            self._PkEtaCF = P_eta_interp(self._klistCF)
-            self.xiEta_RR_CF = self.get_xi_R1R2(Cosmo_Parameters, field = 'vcb')
-        else:
-            self._PkEtaCF = np.zeros_like(self._PklinCF)
-            self.xiEta_RR_CF = np.zeros_like(self.xi_RR_CF)
-    def _WinTH(self,k,R):
-        x = k * R
-        return 3.0/x**2 * (np.sin(x)/x - np.cos(x))
-
-    def _WinTH1D(self,k,R):
-        x = k * R
-        return  np.sin(x)/x
-
-    def _WinG(self,k,R):
-        x = k * R * constants.RGauss_factor
-        return np.exp(-x**2/2.0)
-
-    def Window(self, k, R):
-        if self.WINDOWTYPE == 'TOPHAT':
-            return self._WinTH(k, R)
-        elif self.WINDOWTYPE == 'GAUSS':
-            return self._WinG(k, R)
-        elif self.WINDOWTYPE == 'TOPHAT1D':
-            return self._WinTH1D(k, R)
-        else:
-            print('ERROR in Window. Wrong type')
-
-
-
-
-
-    def get_xi_R1R2 (self, Cosmo_Parameters, field = None):
-        "same as get_xi_z0_lin but smoothed over two different radii with Window(k,R) \
-        same separations rs as get_xi_z0_lin so it does not output them."
-        
-        lengthRarray = Cosmo_Parameters.NRs
-        windowR1 = self.Window(self._klistCF.reshape(lengthRarray, 1, 1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-        windowR2 = self.Window(self._klistCF.reshape(1, lengthRarray,1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-        
-        if field == 'delta':
-            _PkRR = np.array([[self._PklinCF]]) * windowR1 * windowR2
-        elif field == 'vcb':
-            _PkRR = np.array([[self._PkEtaCF]]) * windowR1 * windowR2
-        else:
-            raise ValueError('field has to be either delta or vcb in get_xi_R1R2')
-        
-        self.rlist_CF, xi_RR_CF = self._xif(_PkRR, extrap = False)
-
-        return xi_RR_CF
-
-    # def get_xi_R1R2_z0 (self, Cosmo_Parameters):
-    #     "same as get_xi_z0_lin but smoothed over two different radii with Window(k,R) \
-    #     same separations rs as get_xi_z0_lin so it does not output them."
-        
-    #     ###HAC: Broadcasted to improve efficiency
-    #     ###HAC: dim 0 is R1, dim 1 is R2, dim 2 is r, where R1 and R2 are smoothing radii and r is the argument of xi(r)
-    #     lengthRarray = Cosmo_Parameters.NRs
-    #     windowR1 = self.Window(self._klistCF.reshape(lengthRarray, 1, 1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-    #     windowR2 = self.Window(self._klistCF.reshape(1, lengthRarray,1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-        
-    #     _PkRR = np.array([[self._PklinCF]]) * windowR1 * windowR2
-        
-    #     self.rlist_CF, xi_RR_CF = self._xif(_PkRR, extrap = False)
-
-    #     return xi_RR_CF
-        
-    ### TODO: remove if not unused 
-    # def get_xi_z0_lin(self):
-    #     "Get correlation function of density, linearly extrapolated to z=0"
-    #     ##Warning: definitely check if beyond LCDM!
-    #     #currenetly unused, just for refernce and plots
-
-    #     rslinCF, xilinCF = self._xif(self._PklinCF, extrap=False)
-
-    #     return rslinCF, xilinCF
-    # ###HAC: The next two are the same, but for
-    # def get_xiEta(self, Cosmo_Parameters):
-    #     "Get correlation function of v^2 at z_drag (~1060 for LCDM parameters)"
-    #     ##Warning: definitel check if beyond LCDM!
-    #     #currently unused, just for reference and plots
-        
-    #     rsEtaCF, xiEtaCF = self._xif(self._PkEtaCF, extrap=False)
-        
-    #     return rsEtaCF, xiEtaCF
-        
-    # def get_xiEta_R1R2(self, Cosmo_Parameters):
-    #     "same as get_xiEta but smoothed over two different radii with Window"
-        
-    #     ###HAC: Broadcasted to improve efficiency
-    #     ###HAC: dim 0 is R1, dim 1 is R2, dim 2 is r, where R1 and R2 are smoothing radii and r is the argument of xi(r)
-    #     lengthRarray = len(Cosmo_Parameters._Rtabsmoo)
-        
-    #     windowR1 = self.Window(self._klistCF.reshape(lengthRarray, 1, 1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-    #     windowR2 = self.Window(self._klistCF.reshape(1, lengthRarray,1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-
-    #     _PkEtaRR = np.array([[self._PkEtaCF]]) * windowR1 * windowR2
-
-    #     self.rlist_CF, xiEta_RR_CF = self._xif(_PkEtaRR, extrap = False)
-
-    #     return xiEta_RR_CF
-        
-
-
+from . import z21_utilities
 
 
 
 class Power_Spectra:
     "Get power spetrum from correlation functions and coefficients"
 
-    def __init__(self, User_Parameters, Cosmo_Parameters, Astro_Parameters, Correlations, T21_coefficients, RSD_MODE=1):
+    def __init__(self, User_Parameters, Cosmo_Parameters, Astro_Parameters, T21_coefficients, RSD_MODE=1):
 
 #        print("STEP 0: Variable Setup")
         #set up some variables
-        self._rs_input_mcfit = Correlations.rlist_CF #just to make notation simpler
-        self.klist_PS = Correlations._klistCF
+        self._rs_input_mcfit = Cosmo_Parameters.rlist_CF #just to make notation simpler
+        self.klist_PS = Cosmo_Parameters._klistCF
         self.RSD_MODE = RSD_MODE #redshift-space distortion mode. 0 = None (mu=0), 1 = Spherical avg (like 21-cmFAST), 2 = LoS only (mu=1). 2 is more observationally relevant, whereas 1 the standard assumption in sims. 0 is just for comparison with real-space #TODO: mode to save at different mu
 
         #first get the linear window functions -- note it already has growth factor in it, so it multiplies Pmatter(z=0)
         #fix some arrays: TYTYTY HERE
 
-        self._zGreaterMatrix100, self._iRnonlinear, self._corrdNL =  self._prepare_corr_arrays(Cosmo_Parameters, Correlations, T21_coefficients)
+        self._zGreaterMatrix100, self._iRnonlinear, self._corrdNL =  self._prepare_corr_arrays(Cosmo_Parameters, T21_coefficients)
 
-        self.kwindow, self.windowalpha_II = self.get_xa_window(Astro_Parameters, Cosmo_Parameters, Correlations, T21_coefficients, pop = 2)
-        self._kwindowX, self.windowxray_II = self.get_Tx_window(Astro_Parameters, Cosmo_Parameters, Correlations, T21_coefficients, pop = 2)
+        self.kwindow, self.windowalpha_II = self.get_xa_window(Astro_Parameters, Cosmo_Parameters, T21_coefficients, pop = 2)
+        self._kwindowX, self.windowxray_II = self.get_Tx_window(Astro_Parameters, Cosmo_Parameters, T21_coefficients, pop = 2)
         
 
         if Astro_Parameters.USE_POPIII == True:
         # SarahLibanore: add AstroParams to use flag on quadratic order
-            self.kwindow, self.windowalpha_III = self.get_xa_window(Astro_Parameters, Cosmo_Parameters, Correlations, T21_coefficients, pop = 3)
+            self.kwindow, self.windowalpha_III = self.get_xa_window(Astro_Parameters, Cosmo_Parameters, T21_coefficients, pop = 3)
         # SarahLibanore: add AstroParams to use flag on quadratic order
-            self._kwindowX, self.windowxray_III = self.get_Tx_window(Astro_Parameters, Cosmo_Parameters, Correlations, T21_coefficients, pop = 3)
+            self._kwindowX, self.windowxray_III = self.get_Tx_window(Astro_Parameters, Cosmo_Parameters, T21_coefficients, pop = 3)
         else:
             self.windowalpha_III = np.zeros_like(self.windowalpha_II)
             self.windowxray_III = np.zeros_like(self.windowxray_II)
@@ -191,15 +58,6 @@ class Power_Spectra:
         #calculate some growth etc, and the bubble biases for the xHI linear window function:
         self._lingrowthd = cosmology.growth(Cosmo_Parameters, T21_coefficients.zintegral)
 
-        #We don't care about bubbles at the moment
-        # if(constants.FLAG_DO_BUBBLES):
-        #     self..calculate_barrier(Cosmo_Parameters, T21_coefficients)
-        #     self..get_bubbles(Cosmo_Parameters, Correlations, T21_coefficients)
-        #     self..windowxion = np.array([Correlations.Window(self..Rbub_star[iz]) for iz in range(T21_coefficients.Nzintegral)]) #Window returns a k-array. Smooths at the peak of the BMF
-
-        #     self..windowxion = (self..windowxion.T*T21_coefficients.Qstar * self..bias_bub_avg * self.._lingrowthd * np.exp(-T21_coefficients.Qstar) ).T #normalize
-        # else:
-        #     self..windowxion = np.zeros_like(self..windowalpha)
 
 
         ##############################
@@ -208,14 +66,14 @@ class Power_Spectra:
         #finally, get all the nonlinear correlation functions:
 #        print("Computing Pop II-dependent power spectra")
         # SarahLibanore: add AstroParams to use flag on quadratic order
-        self.get_all_corrs_II(Astro_Parameters, User_Parameters, Cosmo_Parameters, Correlations, T21_coefficients)
+        self.get_all_corrs_II(Astro_Parameters, User_Parameters, Cosmo_Parameters, T21_coefficients)
         
         if Astro_Parameters.USE_POPIII == True:
 #            print("Computing Pop IIxIII-dependent cross power spectra")
-            self.get_all_corrs_IIxIII(User_Parameters, Cosmo_Parameters, Correlations, T21_coefficients)
+            self.get_all_corrs_IIxIII(Cosmo_Parameters, T21_coefficients)
             
 #            print("Computing Pop III-dependent power spectra")
-            self.get_all_corrs_III(User_Parameters, Cosmo_Parameters, Correlations, T21_coefficients)
+            self.get_all_corrs_III(User_Parameters, Cosmo_Parameters, T21_coefficients)
         else:
             #bypases Pop III correlation routine and sets all Pop III-dependent correlations to zero
             self._IIxIII_deltaxi_xa = np.zeros_like(self._II_deltaxi_xa)
@@ -234,9 +92,9 @@ class Power_Spectra:
 
         #and now define power spectra:
         #for xalpha, first linear
-        self._Pk_xa_lin_II = self.windowalpha_II**2 * Correlations._PklinCF
-        self._Pk_xa_lin_III = self.windowalpha_III**2 * Correlations._PklinCF ###TO DO (linearized VCB flucts):+ self.windowalphaVel_III**2 * Correlations._PkEtaCF
-        self._Pk_xa_lin_IIxIII = 2* self.windowalpha_II * self.windowalpha_III * Correlations._PklinCF #Pop IIxIII cross term doesn't have a velocity component
+        self._Pk_xa_lin_II = self.windowalpha_II**2 * Cosmo_Parameters._PklinCF
+        self._Pk_xa_lin_III = self.windowalpha_III**2 * Cosmo_Parameters._PklinCF ###TO DO (linearized VCB flucts):+ self.windowalphaVel_III**2 * Cosmo_Parameters._PkEtaCF
+        self._Pk_xa_lin_IIxIII = 2* self.windowalpha_II * self.windowalpha_III * Cosmo_Parameters._PklinCF #Pop IIxIII cross term doesn't have a velocity component
 
         self.Deltasq_xa_lin_II = self._Pk_xa_lin_II * self._k3over2pi2 #note that it still has units of xa_avg
         self.Deltasq_xa_lin_III = self._Pk_xa_lin_III * self._k3over2pi2 #note that it still has units of xa_avg
@@ -256,9 +114,9 @@ class Power_Spectra:
 
 
         #and same for xray
-        self._Pk_Tx_lin_II = self.windowxray_II**2 * Correlations._PklinCF
-        self._Pk_Tx_lin_III = self.windowxray_III**2 * Correlations._PklinCF ###TO DO (linearized VCB flucts):+ self.windowxrayVel_III**2 * Correlations._PkEtaCF
-        self._Pk_Tx_lin_IIxIII = 2* self.windowxray_II * self.windowxray_III * Correlations._PklinCF #Pop IIxIII cross term doesn't have a velocity component
+        self._Pk_Tx_lin_II = self.windowxray_II**2 * Cosmo_Parameters._PklinCF
+        self._Pk_Tx_lin_III = self.windowxray_III**2 * Cosmo_Parameters._PklinCF ###TO DO (linearized VCB flucts):+ self.windowxrayVel_III**2 * Cosmo_Parameters._PkEtaCF
+        self._Pk_Tx_lin_IIxIII = 2* self.windowxray_II * self.windowxray_III * Cosmo_Parameters._PklinCF #Pop IIxIII cross term doesn't have a velocity component
 
         self.Deltasq_Tx_lin_II = self._Pk_Tx_lin_II * self._k3over2pi2
         self.Deltasq_Tx_lin_III = self._Pk_Tx_lin_III * self._k3over2pi2
@@ -277,9 +135,9 @@ class Power_Spectra:
 
 
         #and their cross correlation
-        self._Pk_xaTx_lin_II = self.windowalpha_II * self.windowxray_II * Correlations._PklinCF
-        self._Pk_xaTx_lin_III = self.windowalpha_III * self.windowxray_III * Correlations._PklinCF ###TO DO (linearized VCB flucts):+ self.windowalphaVel_III * self.windowxrayVel_III * Correlations._PkEtaCF
-        self._Pk_xaTx_lin_IIxIII = (self.windowalpha_II * self.windowxray_III + self.windowalpha_III * self.windowxray_II) * Correlations._PklinCF
+        self._Pk_xaTx_lin_II = self.windowalpha_II * self.windowxray_II * Cosmo_Parameters._PklinCF
+        self._Pk_xaTx_lin_III = self.windowalpha_III * self.windowxray_III * Cosmo_Parameters._PklinCF ###TO DO (linearized VCB flucts):+ self.windowalphaVel_III * self.windowxrayVel_III * Cosmo_Parameters._PkEtaCF
+        self._Pk_xaTx_lin_IIxIII = (self.windowalpha_II * self.windowxray_III + self.windowalpha_III * self.windowxray_II) * Cosmo_Parameters._PklinCF
 
         self.Deltasq_xaTx_lin_II = self._Pk_xaTx_lin_II * self._k3over2pi2
         self.Deltasq_xaTx_lin_III = self._Pk_xaTx_lin_III * self._k3over2pi2
@@ -298,14 +156,14 @@ class Power_Spectra:
         
         
         #and the same for deltaNL and its cross terms:
-        self._Pk_d_lin = np.outer(self._lingrowthd**2, Correlations._PklinCF) #No Pop II or III contribution
+        self._Pk_d_lin = np.outer(self._lingrowthd**2, Cosmo_Parameters._PklinCF) #No Pop II or III contribution
         self.Deltasq_d_lin = self._Pk_d_lin * self._k3over2pi2 #note that it still has units of xa_avg
 
-        self._Pk_dxa_lin_II = (self.windowalpha_II.T * self._lingrowthd).T * Correlations._PklinCF
-        self._Pk_dxa_lin_III = (self.windowalpha_III.T * self._lingrowthd).T * Correlations._PklinCF #No velocity component
+        self._Pk_dxa_lin_II = (self.windowalpha_II.T * self._lingrowthd).T * Cosmo_Parameters._PklinCF
+        self._Pk_dxa_lin_III = (self.windowalpha_III.T * self._lingrowthd).T * Cosmo_Parameters._PklinCF #No velocity component
 
-        self._Pk_dTx_lin_II = (self.windowxray_II.T * self._lingrowthd).T * Correlations._PklinCF
-        self._Pk_dTx_lin_III = (self.windowxray_III.T * self._lingrowthd).T * Correlations._PklinCF #No velocity component
+        self._Pk_dTx_lin_II = (self.windowxray_II.T * self._lingrowthd).T * Cosmo_Parameters._PklinCF
+        self._Pk_dTx_lin_III = (self.windowxray_III.T * self._lingrowthd).T * Cosmo_Parameters._PklinCF #No velocity component
 
         self.Deltasq_dxa_lin_II = self._Pk_dxa_lin_II * self._k3over2pi2
         self.Deltasq_dxa_lin_III = self._Pk_dxa_lin_III * self._k3over2pi2 #No velocity component
@@ -352,28 +210,28 @@ class Power_Spectra:
         #and xHI too. Linear part does not have bubbles, only delta part
         if(constants.FLAG_DO_BUBBLES):
             #auto
-            self._Pk_xion_lin = self.windowxion**2 * Correlations._PklinCF
+            self._Pk_xion_lin = self.windowxion**2 * Cosmo_Parameters._PklinCF
             self.Deltasq_xion_lin = self._Pk_xion_lin * self._k3over2pi2
 
             self._d_Pk_xion_nl = self.get_list_PS(self._deltaxi_xi, T21_coefficients.zintegral)
             self.Deltasq_xion = self.Deltasq_xion_lin + self._d_Pk_xion_nl * self._k3over2pi2
 
             #cross with density
-            self._Pk_dxion_lin = (self.windowxion.T * self._lingrowthd).T  * Correlations._PklinCF
+            self._Pk_dxion_lin = (self.windowxion.T * self._lingrowthd).T  * Cosmo_Parameters._PklinCF
             self.Deltasq_dxion_lin = self._Pk_dxion_lin * self._k3over2pi2
 
             self._d_Pk_dxion_nl = self.get_list_PS(self._deltaxi_dxi, T21_coefficients.zintegral)
             self.Deltasq_dxion = self.Deltasq_dxion_lin + self._d_Pk_dxion_nl * self._k3over2pi2
 
             #cross with xa
-            self._Pk_xaxion_lin = self.windowxion * self.windowalpha  * Correlations._PklinCF
+            self._Pk_xaxion_lin = self.windowxion * self.windowalpha  * Cosmo_Parameters._PklinCF
             self.Deltasq_xaxion_lin = self._Pk_xaxion_lin * self._k3over2pi2
 
             self._d_Pk_xaxion_nl = self.get_list_PS(self._deltaxi_xaxi, T21_coefficients.zintegral)
             self.Deltasq_xaxion = self.Deltasq_xaxion_lin + self._d_Pk_xaxion_nl * self._k3over2pi2
 
             #and cross with Tx
-            self._Pk_Txxion_lin = self.windowxion * self.windowxray  * Correlations._PklinCF
+            self._Pk_Txxion_lin = self.windowxion * self.windowxray  * Cosmo_Parameters._PklinCF
             self.Deltasq_Txxion_lin = self._Pk_Txxion_lin * self._k3over2pi2
 
             self._d_Pk_Txxion_nl = self.get_list_PS(self._deltaxi_Txxi, T21_coefficients.zintegral)
@@ -487,17 +345,17 @@ class Power_Spectra:
 
 
 
-    def _prepare_corr_arrays(self, Cosmo_Parameters,Correlations, T21_coefficients):
+    def _prepare_corr_arrays(self, Cosmo_Parameters, T21_coefficients):
         zGM = np.copy(T21_coefficients.zGreaterMatrix)
         zGM[np.isnan(zGM)] = 100
         iR = np.arange(Cosmo_Parameters.indexmaxNL)
-        corr = Correlations.xi_RR_CF[np.ix_(iR, iR)]
+        corr = Cosmo_Parameters.xi_RR_CF[np.ix_(iR, iR)]
         corr[:Cosmo_Parameters.indexminNL, :Cosmo_Parameters.indexminNL] = \
             corr[Cosmo_Parameters.indexminNL, Cosmo_Parameters.indexminNL]
         return zGM, iR, corr.reshape((1, *corr.shape))
 
     # SarahLibanore: add AstroParams to use flag on quadratic order
-    def get_xa_window(self, Astro_Parameters, Cosmo_Parameters, Correlations, T21_coefficients, pop = 0): #set pop to 2 or 3, default zero just so python doesn't complain
+    def get_xa_window(self, Astro_Parameters, Cosmo_Parameters, T21_coefficients, pop = 0): #set pop to 2 or 3, default zero just so python doesn't complain
         "Returns the xa window function for all z in zintegral"
 
         coeffzp = T21_coefficients.coeff1LyAzp
@@ -531,7 +389,7 @@ class Power_Spectra:
 
             dummyMesh, RtabsmooMesh, kWinAlphaMesh = np.meshgrid(T21_coefficients.zintegral, Cosmo_Parameters._Rtabsmoo, _kwinalpha, indexing = 'ij', sparse = True)
 
-            _win_alpha = coeffRgammaRmatrix * Correlations._WinTH(RtabsmooMesh, kWinAlphaMesh)
+            _win_alpha = coeffRgammaRmatrix * z21_utilities._WinTH(RtabsmooMesh, kWinAlphaMesh, WINDOWTYPE = 'TOPHAT')
             _win_alpha = np.sum(_win_alpha, axis = 1)
 
         _win_alpha *= np.array([coeffzp*coeffJaxa]).T
@@ -540,7 +398,7 @@ class Power_Spectra:
 
 
     # SarahLibanore: add AstroParams to use flag on quadratic order
-    def get_Tx_window(self, Astro_Parameters, Cosmo_Parameters,  Correlations, T21_coefficients, pop = 0): #set pop to 2 or 3, default zero just so python doesn't complain
+    def get_Tx_window(self, Astro_Parameters, Cosmo_Parameters, T21_coefficients, pop = 0): #set pop to 2 or 3, default zero just so python doesn't complain
         "Returns the Tx window function for all z in zintegral"
 
         coeffzp = np.array([T21_coefficients.coeff1Xzp]).T
@@ -574,7 +432,7 @@ class Power_Spectra:
 
             dummyMesh, RtabsmooMesh, kWinTxMesh = np.meshgrid(T21_coefficients.zintegral, Cosmo_Parameters._Rtabsmoo, _kwinTx, indexing = 'ij', sparse = True)
 
-            _win_Tx_curr = coeffRgammaRmatrix * Correlations._WinTH(RtabsmooMesh, kWinTxMesh)
+            _win_Tx_curr = coeffRgammaRmatrix * z21_utilities._WinTH(RtabsmooMesh, kWinTxMesh)
             _win_Tx_curr = np.sum(_win_Tx_curr , axis = 1)
 
         _win_Tx = _win_Tx_curr * coeffzp
@@ -586,7 +444,7 @@ class Power_Spectra:
 
 
     # SarahLibanore: function modified to include quadratic order
-    def get_all_corrs_II(self, Astro_Parameters, User_Parameters, Cosmo_Parameters, Correlations, T21_coefficients):
+    def get_all_corrs_II(self, Astro_Parameters, User_Parameters, Cosmo_Parameters, T21_coefficients):
 
         "Returns the Pop II components of the correlation functions of all observables at each z in zintegral"
         #HAC: I deleted the bubbles and EoR part, to be done later.....
@@ -804,7 +662,7 @@ class Power_Spectra:
             
         return 1
 
-    def get_all_corrs_IIxIII(self, User_Parameters, Cosmo_Parameters, Correlations, T21_coefficients):
+    def get_all_corrs_IIxIII(self, Cosmo_Parameters, T21_coefficients):
         """
         Returns the Pop IIxIII cross-correlation function of all observables at each z in zintegral
         """
@@ -942,7 +800,7 @@ class Power_Spectra:
         return xiTotal
 
 
-    def get_all_corrs_III(self, User_Parameters, Cosmo_Parameters, Correlations, T21_coefficients):
+    def get_all_corrs_III(self, User_Parameters, Cosmo_Parameters, T21_coefficients):
         "Returns the Pop III components of the correlation functions of all observables at each z in zintegral"
         #HAC: I deleted the bubbles and EoR part, to be done later.....
 
@@ -950,7 +808,7 @@ class Power_Spectra:
         corrdNL = self._corrdNL
 
 
-        corrEtaNL = Correlations.xiEta_RR_CF[np.ix_(self._iRnonlinear,self._iRnonlinear)]
+        corrEtaNL = Cosmo_Parameters.xiEta_RR_CF[np.ix_(self._iRnonlinear,self._iRnonlinear)]
         corrEtaNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrEtaNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
         corrEtaNL = corrEtaNL.reshape(1, *corrEtaNL.shape)
 

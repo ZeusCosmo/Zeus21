@@ -17,7 +17,6 @@ from scipy.interpolate import RegularGridInterpolator
 
 from . import constants
 from .inputs import Cosmo_Parameters
-from .correlations import Correlations
 
 def cosmo_wrapper(User_Parameters):
     """
@@ -26,10 +25,9 @@ def cosmo_wrapper(User_Parameters):
     """
 
     CosmoParams = Cosmo_Parameters(User_Parameters) 
-    CorrFClass = Correlations(User_Parameters, CosmoParams, CosmoParams.ClassyCosmo) ### TODO
     HMFintclass = HMF_interpolator(User_Parameters,CosmoParams)
 
-    return CosmoParams, CorrFClass, HMFintclass
+    return CosmoParams, HMFintclass
 
 
 def Hub(Cosmo_Parameters, z):

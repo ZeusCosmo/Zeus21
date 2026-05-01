@@ -108,7 +108,7 @@ class SFRD_class:
         self.fesctab_II = self.fesc_II(AstroParams, HMFinterp.Mhtab) #prepare fesc(M) table -- z independent for now so only once
         self.fesctab_III = self.fesc_III(AstroParams, HMFinterp.Mhtab) #PopIII prepare fesc(M) table -- z independent for now so only once
         reio_integrand_II = self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zSFRD, pop=2)
-        reio_integrand_III = self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zSFRD, pop=3)
+        reio_integrand_III = self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zSFRD, pop=3, vCB=CosmoParams.vcb_avg, J21LW_interp=init_J21LW_interp)
         niondot_avg_II = AstroParams.N_ion_perbaryon_II/cosmology.rho_baryon(CosmoParams,0.) * np.trapezoid(reio_integrand_II * self.fesctab_II, HMFinterp.logtabMh, axis = 1)
         niondot_avg_III = AstroParams.N_ion_perbaryon_III/cosmology.rho_baryon(CosmoParams,0.) * np.trapezoid(reio_integrand_III * self.fesctab_III, HMFinterp.logtabMh, axis = 1)
         self.reio_integrand_II_interp = interpolate.interp1d(zSFRDflat, niondot_avg_II, kind = 'cubic', bounds_error = False, fill_value = 0)
@@ -463,36 +463,7 @@ class SFRD_class:
             self.gamma2_III_index2D = np.zeros_like(self.gamma2_II_index2D)
 
         gamma_II_index2D_Lag = self.gamma_II_index2D - 1.
-        gamma_III_Lagrangian = self.gamma_III_index2D-1.0
-        
-        if AstroParams.quadratic_SFRD_lognormal:
-
-            gamma2_II_index2D_Lag = self.gamma2_II_index2D + 1/2. 
-            
-            _corrfactorEulerian_II = (1+(gamma_II_index2D_Lag-2*gamma2_II_index2D_Lag)*self.sigmaofRtab**2)/(1-2*gamma2_II_index2D_Lag*self.sigmaofRtab**2)
-
-
-            if AstroParams.USE_POPIII:
-                gamma2_III_Lagrangian = self.gamma2_III_index2D + 1/2.
-                _corrfactorEulerian_III = (1+(gamma_III_Lagrangian-2*gamma2_III_Lagrangian)*self.sigmaofRtab**2)/(1-2*gamma2_III_Lagrangian*self.sigmaofRtab**2)                
-            else:
-                _corrfactorEulerian_III = np.zeros_like(_corrfactorEulerian_II)
-
-        else:
-            _corrfactorEulerian_II = 1.0 + gamma_II_index2D_Lag * input_sigmaofRtab**2
-
-            if AstroParams.USE_POPIII:
-                _corrfactorEulerian_III = 1.0 + gamma_III_Lagrangian*self.sigmaofRtab**2
-            else:
-                _corrfactorEulerian_III = np.zeros_like(_corrfactorEulerian_II)
-
-
-        self._corrfactorEulerian_II=_corrfactorEulerian_II.T
-
-        self._corrfactorEulerian_II[0:CosmoParams.indexminNL] = self._corrfactorEulerian_II[CosmoParams.indexminNL] #for R<R_NL we just fix it to the RNL value, as we do for the correlation function. We could cut the sum but this keeps those scales albeit approximately
-
-        self._corrfactorEulerian_III=_corrfactorEulerian_III.T ### TODO check if I should've just added the self here.
-        _corrfactorEulerian_III[0:CosmoParams.indexminNL] = _corrfactorEulerian_III[CosmoParams.indexminNL] #for R<R_NL we just fix it to the RNL value, as we do for the correlation function. We could cut the sum but this keeps those scales albeit approximately
+        gamma_III_Lagrangian = self.gamma_III_index2D - 1.
 
 
         ### LW correction to Pop III gammas
@@ -503,7 +474,6 @@ class SFRD_class:
 
                 #compute LW coefficients for Pop II and III stars
                 coeff1LWzp_II, coeff2LWzpRR_II = self.J_LW_Discrete(CosmoParams, AstroParams, z_array, 2, R_array, self.SFRD_II_interp)
-
                 coeff1LWzp_III, coeff2LWzpRR_III = self.J_LW_Discrete(CosmoParams, AstroParams, z_array, 3, R_array, self.SFRD_III_cnvg_interp)
 
                 # Corrections WITH Rmax smoothing
@@ -517,10 +487,29 @@ class SFRD_class:
                 xi_R_maxrR  = xi_R_maxrR  + np.triu(xi_RR_CF_zerolag, k = 1)
 
                 self.deltaGamma_R_Matrix = xi_R_maxrR.reshape(len(R_array), 1, len(R_array)) * (deltaGamma_R * CosmoParams._dlogRR * R_array).reshape(1, len(z_array), len(R_array))
-                deltaGamma_R_z = np.transpose(   np.sum(self.deltaGamma_R_Matrix, axis = 2) / np.transpose([np.diagonal(xi_RR_CF_zerolag[:,:])])    )
-                deltaGamma_R_z[ self.gamma_III_index2D == 0 ] = 0 #don't correct gammas if gammas are zero
-                self.deltaGamma_R_z = deltaGamma_R_z
-                self.gamma_III_index2D += deltaGamma_R_z #correct Pop III gammas with LW correction factor
+                self.deltaGamma_R_z = np.transpose(   np.sum(self.deltaGamma_R_Matrix, axis = 2) / np.transpose([np.diagonal(xi_RR_CF_zerolag[:,:])])    )
+                self.deltaGamma_R_z[ self.gamma_III_index2D == 0 ] = 0 #don't correct gammas if gammas are zero
+                self.gamma_III_index2D += self.deltaGamma_R_z #correct Pop III gammas with LW correction factor
+
+        # Non-Linear Correction Factors
+        if AstroParams.quadratic_SFRD_lognormal:
+            gamma2_II_index2D_Lag = self.gamma2_II_index2D + 1/2. 
+            _corrfactorEulerian_II = (1+(gamma_II_index2D_Lag-2*gamma2_II_index2D_Lag)*self.sigmaofRtab**2)/(1-2*gamma2_II_index2D_Lag*self.sigmaofRtab**2)
+            if AstroParams.USE_POPIII:
+                gamma2_III_Lagrangian = self.gamma2_III_index2D + 1/2.
+                _corrfactorEulerian_III = (1+(gamma_III_Lagrangian-2*gamma2_III_Lagrangian)*self.sigmaofRtab**2)/(1-2*gamma2_III_Lagrangian*self.sigmaofRtab**2)                
+            else:
+                _corrfactorEulerian_III = np.zeros_like(_corrfactorEulerian_II)
+        else:
+            _corrfactorEulerian_II = 1.0 + gamma_II_index2D_Lag * input_sigmaofRtab**2
+            if AstroParams.USE_POPIII:
+                _corrfactorEulerian_III = 1.0 + gamma_III_Lagrangian*self.sigmaofRtab**2
+            else:
+                _corrfactorEulerian_III = np.zeros_like(_corrfactorEulerian_II)
+        self._corrfactorEulerian_II=_corrfactorEulerian_II.T
+        self._corrfactorEulerian_II[0:CosmoParams.indexminNL] = self._corrfactorEulerian_II[CosmoParams.indexminNL] #for R<R_NL we just fix it to the RNL value, as we do for the correlation function. We could cut the sum but this keeps those scales albeit approximately
+        self._corrfactorEulerian_III=_corrfactorEulerian_III.T
+        self._corrfactorEulerian_III[0:CosmoParams.indexminNL] = self._corrfactorEulerian_III[CosmoParams.indexminNL] #for R<R_NL we just fix it to the RNL value, as we do for the correlation function. We could cut the sum but this keeps those scales albeit approximately
                 
 
         return 1

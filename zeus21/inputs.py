@@ -13,6 +13,7 @@ BGU, UT Austin - April 2026
 """
 
 from . import constants
+from . import z21_utilities
 
 from dataclasses import dataclass, field as _field, InitVar
 from typing import Any
@@ -297,8 +298,8 @@ class Cosmo_Parameters:
         # derived params
         self.omegam = self.omegab + self.omegac
         self.OmegaM = self.ClassCosmo.Omega_m()
-        #self.rhocrit = 3 * 100**2 / (8 * np.pi* constants.MsunToKm * constants.c_kms**2 * constants.KmToMpc) * self.h_fid**2 # Msun/Mpc^3
-        self.rhocrit = 2.78e11*self.h_fid**2 #Msun/Mpc^3
+        self.rhocrit = 3 * 100**2 / (8 * np.pi* constants.MsunToKm * constants.c_kms**2 * constants.KmToMpc) * self.h_fid**2 # Msun/Mpc^3
+        #self.rhocrit = 2.78e11*self.h_fid**2 #Msun/Mpc^3 ### TODO
         self.OmegaR = self.ClassCosmo.Omega_r()
         self.OmegaL = self.ClassCosmo.Omega_Lambda()
         self.OmegaB = self.ClassCosmo.Omega_b()
@@ -367,6 +368,9 @@ class Cosmo_Parameters:
             self.delta_crit_ST = 1.68
             self.a_corr_EPS = 1.0
 
+        # Run matter and relative velocities correlations
+        self.run_correlations()
+
     def runclass(self):
         "Set up CLASS cosmology. Takes CosmologyIn class input and returns CLASS Cosmology object"
         ClassCosmo = Class()
@@ -403,13 +407,13 @@ class Cosmo_Parameters:
             theta_b = velTransFunc['t_b']
             theta_c = velTransFunc['t_cdm']
 
-            sigma_vcb = np.sqrt(np.trapezoid(self.As * (kVel/0.05)**(self.ns-1) /kVel * (theta_b - theta_c)**2/kVel**2, kVel)) * constants.c_kms
+            sigma_vcb = np.sqrt(np.trapz(self.As * (kVel/0.05)**(self.ns-1) /kVel * (theta_b - theta_c)**2/kVel**2, kVel)) * constants.c_kms
             ClassCosmo.pars['sigma_vcb'] = sigma_vcb
             
             ###HAC: now computing average velocity assuming a Maxwell-Boltzmann distribution of velocities
             velArr = np.geomspace(0.01, constants.c_kms, 1000) #in km/s
             vavgIntegrand = (3 / (2 * np.pi * sigma_vcb**2))**(3/2) * 4 * np.pi * velArr**2 * np.exp(-3 * velArr**2 / (2 * sigma_vcb**2))
-            ClassCosmo.pars['v_avg'] = np.trapezoid(vavgIntegrand * velArr, velArr)
+            ClassCosmo.pars['v_avg'] = np.trapz(vavgIntegrand * velArr, velArr)
             
             ###HAC: Computing Vcb Power Spectrum
             ClassCosmo.pars['k_vcb'] = kVel
@@ -427,8 +431,8 @@ class Cosmo_Parameters:
             j0bessel = lambda x: np.sin(x)/x
             j2bessel = lambda x: (3 / x**2 - 1) * np.sin(x)/x - 3*np.cos(x)/x**2
             
-            psi0 = 1 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapezoid(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j0bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
-            psi2 = -2 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapezoid(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j2bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
+            psi0 = 1 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapz(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j0bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
+            psi2 = -2 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapz(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j2bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
             
             k_eta, P_eta = mcfit.xi2P(rVelIntp, l=0, lowring = True)((6 * psi0**2 + 3 * psi2**2), extrap = False)
             
@@ -442,6 +446,54 @@ class Cosmo_Parameters:
             ClassCosmo.pars['sigma_vcb'] = 1.0 #Avoids excess computation, but doesn't matter what value we set it to because the flag in inputs.py sets all feedback parameters to zero
         
         return ClassCosmo
+    
+    def run_correlations(self):
+        #we choose the k to match exactly the log FFT of input Rtabsmoo.
+
+        self._klistCF, _dummy_ = mcfit.xi2P(self._Rtabsmoo, l=0, lowring=True)(0*self._Rtabsmoo, extrap=False)
+        self.NkCF = len(self._klistCF)
+
+        self._PklinCF = np.zeros(self.NkCF) # P(k) in 1/Mpc^3
+        for ik, kk in enumerate(self._klistCF):
+            self._PklinCF[ik] = self.ClassCosmo.pk(kk, 0.0) # function .pk(k,z)
+
+
+
+        self._xif = mcfit.P2xi(self._klistCF, l=0, lowring=True)
+
+
+        self.xi_RR_CF = self.get_xi_R1R2(field = 'delta')
+        self.ClassCosmo.pars['xi_RR_CF'] = np.copy(self.xi_RR_CF) #store correlation function for gamma_III correction in SFRD
+
+        ###HAC: Interpolated object for eta power spectrum
+        if self.USE_RELATIVE_VELOCITIES == True:
+            P_eta_interp = interp1d(self.ClassCosmo.pars['k_eta'], self.ClassCosmo.pars['P_eta'], bounds_error = False, fill_value = 0)
+            self._PkEtaCF = P_eta_interp(self._klistCF)
+            self.xiEta_RR_CF = self.get_xi_R1R2(field = 'vcb')
+        else:
+            self._PkEtaCF = np.zeros_like(self._PklinCF)
+            self.xiEta_RR_CF = np.zeros_like(self.xi_RR_CF)
+
+
+    def get_xi_R1R2 (self, field = None):
+        "same as get_xi_z0_lin but smoothed over two different radii with Window(k,R) \
+        same separations rs as get_xi_z0_lin so it does not output them."
+        
+        lengthRarray = self.NRs
+        windowR1 = z21_utilities.Window(self._klistCF.reshape(lengthRarray, 1, 1), self._Rtabsmoo.reshape(1, 1, lengthRarray))
+        windowR2 = z21_utilities.Window(self._klistCF.reshape(1, lengthRarray,1), self._Rtabsmoo.reshape(1, 1, lengthRarray))
+        
+        if field == 'delta':
+            _PkRR = np.array([[self._PklinCF]]) * windowR1 * windowR2
+        elif field == 'vcb':
+            _PkRR = np.array([[self._PkEtaCF]]) * windowR1 * windowR2
+        else:
+            raise ValueError('field has to be either delta or vcb in get_xi_R1R2')
+        
+        self.rlist_CF, xi_RR_CF = self._xif(_PkRR, extrap = False)
+
+        return xi_RR_CF
+
 
 
 @dataclass(kw_only=True)
@@ -599,7 +651,7 @@ class Astro_Parameters:
     accretion_model: str = "exp"
     USE_POPIII: bool = False
     USE_LW_FEEDBACK: bool = True
-    quadratic_SFRD_lognormal: bool = True ### TODO check with Sarah/Julian
+    quadratic_SFRD_lognormal: bool = True
 
     # SFR(Mh) parameters 
     epsstar: float = 0.1

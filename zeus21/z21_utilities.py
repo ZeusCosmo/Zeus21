@@ -12,6 +12,8 @@ from pyfftw import empty_aligned as empty
 import time
 import gc
 
+from . import constants
+
 def powerboxCtoR(pbobject,mapkin = None):
     'Function to convert a complex field to real 3D (eg density, T21...) on the powerbox notation'
     'Takes a powerbox object pbobject, and a map in k space (mapkin), or otherwise assumes its pbobject.delta_k() (tho in that case it should be delta_x() so...'
@@ -31,6 +33,35 @@ def tophat_smooth(rr, ks, dk):
     win_k = 3/(x**3) * (np.sin(x) - x*np.cos(x))
     deltakfilt = dk * win_k
     return np.real(np.fft.ifftn(deltakfilt))
+
+
+
+
+def _WinTH(k,R):
+    x = k * R
+    return 3.0/x**2 * (np.sin(x)/x - np.cos(x))
+
+def _WinTH1D(k,R):
+    x = k * R
+    return  np.sin(x)/x
+
+def _WinG(k,R):
+    x = k * R * constants.RGauss_factor
+    return np.exp(-x**2/2.0)
+
+def Window(k, R, WINDOWTYPE="TOPHAT"):
+    if WINDOWTYPE == 'TOPHAT':
+        return _WinTH(k, R)
+    elif WINDOWTYPE == 'GAUSS':
+        return _WinG(k, R)
+    elif WINDOWTYPE == 'TOPHAT1D':
+        return _WinTH1D(k, R)
+    else:
+        print('ERROR in Window. Wrong type')
+
+
+
+
 
 def find_nearest_idx(array, values):
     array = np.atleast_1d(array)

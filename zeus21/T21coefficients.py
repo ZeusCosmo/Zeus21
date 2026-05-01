@@ -78,7 +78,7 @@ class LyAlpha_class:
         # We're assuming that (1+d)SFRD ~ exp(gamma*d), so the "Lagrangian" gamma was gamma-1. 
         # We're using the fact that for a lognormal variable X = log(Z), with  Z=\gamma \delta, <X> = exp(\gamma^2 \sigma^2/2).
         if UserParams.C2_RENORMALIZATION_FLAG:
-            self.coeff2LyAzpRR_II = self.coeff2LyAzpRR_II* SFRD_Init._corrfactorEulerian_II.T
+            self.coeff2LyAzpRR_II = self.coeff2LyAzpRR_II * SFRD_Init._corrfactorEulerian_II.T
             if AstroParams.USE_POPIII:
                 self.coeff2LyAzpRR_III = self.coeff2LyAzpRR_III * SFRD_Init._corrfactorEulerian_III.T
         
@@ -272,7 +272,6 @@ class get_T21_coefficients:
         self.USE_POPIII = AstroParams.USE_POPIII
         if self.USE_POPIII:
             self.relvel = PopIII_relvel(UserParams, CosmoParams, AstroParams, HMFinterp, self.z_Init, self.SFRD_Init)
-            ### TODO to debug: compare the output with old version
         else:
             self.relvel = None
 
@@ -301,7 +300,7 @@ class get_T21_coefficients:
 
         #####################################################################################################
         ### Compute the 21cm Global Signal
-        self.T21avg = cosmology.T021(CosmoParams,self.z_Init.zintegral) * self.xa_avg/(1.0 + self.xa_avg) * (1.0 - self.T_CMB * self.invTcol_avg) * self.xHI_avg
+        self.T21avg = cosmology.T021(CosmoParams,self.z_Init.zintegral) * self.xa_avg/(1.0 + self.xa_avg) * (1.0 - self.T_CMB * self.invTcol_avg) * self.xHI_avg #TODO
 
         self.tau_reio_val = self.tau_reio(CosmoParams, self.z_Init.zintegral, self.xHI_avg)
 

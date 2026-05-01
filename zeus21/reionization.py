@@ -106,55 +106,58 @@ class reionization_global:
         prebarrier_xHII = nion_values / (1 + nrec_values)
 
         return prebarrier_xHII
-
+    
     def compute_barrier(self, CosmoParams, AstroParams, ion_frac, z, R):
         """
         Computes the density barrier threshold for ionization.
-        
-        Using the analytic model from Sklansky et al. (in prep), if the total number of ionized photons produced in an overdensity exceeds the sum of the number of hydrogens present and total number of recombinations occurred, then the overdensity is ionized. The density required to ionized is recorded.
-
-        Parameters
-        ----------
-        CosmoParams: zeus21.Cosmo_Parameters class
-            Stores cosmology.
-        ion_frac: 1D np.array
-            The ionized fractions to be used to compute the number of recombinations. 
-
-        Output
-        ----------
-        barrier: 2D np.array
-            The resultant density threshold array. First dimension is each redshift, second dimension is each radius scale.
         """
-        barrier = np.zeros((len(z), len(R)))
-
-        zarg = np.argsort(z) #sort just in case
+        zarg = np.argsort(z)
         z = z[zarg]
         ion_frac = ion_frac[zarg]
-
-        #Compute nion_values and nrec_values based on (re)computed ion_frac
-        self.prebarrier_xHII =  self.compute_prebarrier_xHII(CosmoParams, ion_frac, z, R)
+    
+        self.prebarrier_xHII = self.compute_prebarrier_xHII(
+            CosmoParams, ion_frac, z, R
+        )
+    
         total_values = np.log10(self.prebarrier_xHII + 1e-10)
-        
-        for ir in range(len(R)):
-            #Loop over redshift indices
-            for iz in range(len(self.zlist)):
-                y_values = total_values[:, iz, ir]  #Shape (nd,)
-        
-                #Find zero crossings
-                sign_change = np.diff(np.sign(y_values))
-                idx = np.where(sign_change)[0]
-                if idx.size > 0:
-                    #Linear interpolation to find zero crossings
-                    x0 = self.ds_array[idx]
-                    x1 = self.ds_array[idx + 1]
-                    y0 = y_values[idx]
-                    y1 = y_values[idx + 1]
-                    x_intersect = x0 - y0 * (x1 - x0) / (y1 - y0)
-                    barrier[iz, ir] = x_intersect[0]  #Assuming we take the first crossing
-                else:
-                    barrier[iz, ir] = np.nan #Never crosses
-        barrier = barrier * (CosmoParams.growthint(self.zlist)/CosmoParams.growthint(self.zlist[0]))[:, None] #scale barrier with growth factor
-        barrier[self.zlist > AstroParams.ZMAX_REION] = 100 #sets density to an unreachable barrier, as if reionization isn't happening
+        # Expected shape: (len(self.ds_array), len(self.zlist), len(R))
+    
+        crosses = np.diff(np.sign(total_values), axis=0) != 0
+        # Shape: (len(self.ds_array) - 1, len(self.zlist), len(R))
+    
+        has_crossing = crosses.any(axis=0)
+        first_idx = np.argmax(crosses, axis=0)
+        # Shape: (len(self.zlist), len(R))
+    
+        y0 = np.take_along_axis(
+            total_values[:-1, :, :],
+            first_idx[None, :, :],
+            axis=0,
+        )[0]
+    
+        y1 = np.take_along_axis(
+            total_values[1:, :, :],
+            first_idx[None, :, :],
+            axis=0,
+        )[0]
+    
+        x0 = self.ds_array[first_idx]
+        x1 = self.ds_array[first_idx + 1]
+    
+        with np.errstate(divide="ignore", invalid="ignore"):
+            barrier = x0 - y0 * (x1 - x0) / (y1 - y0)
+    
+        barrier = np.where(has_crossing, barrier, np.nan)
+    
+        growth = (
+            CosmoParams.growthint(self.zlist)
+            / CosmoParams.growthint(self.zlist[0])
+        )
+    
+        barrier = barrier * growth[:, None]
+    
+        barrier[self.zlist > AstroParams.ZMAX_REION] = 100
+    
         return barrier
 
     #normalizing the nion/sfrd model
