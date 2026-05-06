@@ -11,7 +11,9 @@ import pytest
 import zeus21
 import numpy as np
 
-from zeus21.UVLFs import UVLF_binned, MUV_of_SFR, AUV, beta
+from zeus21.LFs import UVLF_binned, MUV_of_SFR, AUV, beta
+
+
 
 def test_MUV_of_SFR():
     """Test the conversion from SFR to UV magnitudes"""
@@ -61,10 +63,8 @@ def test_AUV_function():
     """Test the dust attenuation calculation"""
     # Set up parameters
     UserParams = zeus21.User_Parameters()
-    CosmoParams_input = zeus21.Cosmo_Parameters_Input()
-    ClassyCosmo = zeus21.runclass(CosmoParams_input)
-    CosmoParams = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input, ClassyCosmo)
-    AstroParams = zeus21.Astro_Parameters(UserParams, CosmoParams)
+    CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams)
+    AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
     
     # Test with arrays as the function expects
     z_test = np.array([5.0])
@@ -93,11 +93,9 @@ def test_UVLF_binned():
     """Test the binned UV luminosity function calculation"""
     # Set up parameters
     UserParams = zeus21.User_Parameters()
-    CosmoParams_input = zeus21.Cosmo_Parameters_Input(kmax_CLASS=10., zmax_CLASS=20.)
-    ClassyCosmo = zeus21.runclass(CosmoParams_input)
-    CosmoParams = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input, ClassyCosmo)
-    AstroParams = zeus21.Astro_Parameters(UserParams, CosmoParams)
-    HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams, ClassyCosmo)
+    CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100., zmax_CLASS=20.)
+    AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
+    HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
     
     # Test data
     z_center = 6.0
@@ -139,3 +137,14 @@ def test_UVLF_binned():
     
     # Without dust, we expect different values than with dust
     assert not np.array_equal(uvlf, uvlf_nodust)
+
+
+def test_UVLF_binned_with_min_t_formation():
+    """Test that min_t_formation_Myr produces finite outputs and suppresses the bright end.
+
+    When sigmaUV is large, scatter can push small halos into unphysically bright bins.
+    Setting min_t_formation_Myr places a physical upper limit on each halo's SFR based on
+    its maximum stellar mass (all baryons converted to stars) and the minimum formation time.
+    This should suppress the very bright end of the UVLF without affecting the faint end.
+    """
+    pytest.skip("min_t_formation_Myr is not yet a parameter in Astro_Parameters for this branch")

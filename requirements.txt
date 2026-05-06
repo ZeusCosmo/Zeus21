@@ -1,5 +1,5 @@
 pytest
-numpy
+numpy>=2.0
 scipy
 mcfit
 numexpr
@@ -8,3 +8,4 @@ powerbox
 pyfftw
 sphinx
 myst_parser
+tqdm

@@ -20,13 +20,11 @@ def test_cosmo():
 
     UserParams = zeus21.User_Parameters()
 
-    CosmoParams_input = zeus21.Cosmo_Parameters_Input(kmax_CLASS = 10., zmax_CLASS = 10., USE_RELATIVE_VELOCITIES=True) #to speed up
-    ClassyCosmo = zeus21.runclass(CosmoParams_input)
-    CosmoParams = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input, ClassyCosmo)
+    CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100., zmax_CLASS=10., USE_RELATIVE_VELOCITIES=True) #to speed up
 
     #velocity component testing
-    assert(10.0 <= ClassyCosmo.pars['sigma_vcb'] <= 100.0)
-    assert(10.0 <= ClassyCosmo.pars['v_avg'] <= 100.0)
+    assert(10.0 <= CosmoParams.sigma_vcb <= 100.0)
+    assert(10.0 <= CosmoParams.vcb_avg <= 100.0)
     
     #useful functions:
 
@@ -53,9 +51,9 @@ def test_cosmo():
 
     assert(0. <= n_H(CosmoParams,0.0) <= 1e-6) #make sure it's reasonable ~1e-7
 
-    assert(2.5<= Tcmb(ClassyCosmo,0.0) <= 3.0) #make sure it's reasonable 2.725 K
+    assert(2.5<= Tcmb(CosmoParams.ClassCosmo,0.0) <= 3.0) #make sure it's reasonable 2.725 K
 
-    assert(Tcmb(ClassyCosmo,500.) == pytest.approx(Tadiabatic(CosmoParams,500.), 0.1)) #where they are coupled
+    assert(Tcmb(CosmoParams.ClassCosmo,500.) == pytest.approx(Tadiabatic(CosmoParams,500.), 0.1)) #where they are coupled
 
     assert(0. <= xefid(CosmoParams,0) <= 1.0)
     assert(0. <= xefid(CosmoParams,10) <= 1.0)
@@ -71,7 +69,7 @@ def test_cosmo():
 
 
 
-    HMFintclass = zeus21.HMF_interpolator(UserParams,CosmoParams,ClassyCosmo)
+    HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
     MM = HMFintclass.fitMztab[0][1]
     zz = HMFintclass.fitMztab[1][1]
     assert(HMFintclass.HMF_int(np.exp(MM),zz) == pytest.approx(HMFintclass.HMFtab[1,1],0.01))
