@@ -16,30 +16,22 @@ from scipy.interpolate import interp1d
 
 def test_inputs():
 
-    #set up the CLASS cosmology
-    from classy import Class
-    ClassCosmo = Class()
-    ClassCosmo.compute()
-    
     UserParams = zeus21.User_Parameters()
 
-    paramscosmo = [0.022, 0.12, 0.07,2.1e-9, 0.96,0.05, 10., 10.]
+    paramscosmo = [0.022, 0.12, 0.07,2.1e-9, 0.96,0.05, 100., 10.]
     # omegab, omegac, h_fid, As, ns, tau_fid, kmax_CLASS, zmax_CLASS
 
-    CosmoParams_input = zeus21.Cosmo_Parameters_Input(omegab= paramscosmo[0], omegac = paramscosmo[1], h_fid = paramscosmo[2], As = paramscosmo[3], ns = paramscosmo[4], tau_fid = paramscosmo[5], kmax_CLASS = paramscosmo[6], zmax_CLASS = paramscosmo[7])
-
-    ClassyCosmo = zeus21.runclass(CosmoParams_input)
-    CosmoParams = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input, ClassyCosmo)
+    CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, omegab=paramscosmo[0], omegac=paramscosmo[1], h_fid=paramscosmo[2], As=paramscosmo[3], ns=paramscosmo[4], tau_fid=paramscosmo[5], kmax_CLASS=paramscosmo[6], zmax_CLASS=paramscosmo[7])
 
     #make sure all the input parameters are the same as we use throughout
-    assert(CosmoParams.omegab == CosmoParams_input.omegab)
-    assert(CosmoParams.omegac == CosmoParams_input.omegac)
-    assert(CosmoParams.h_fid == CosmoParams_input.h_fid)
-    assert(CosmoParams.As == CosmoParams_input.As)
-    assert(CosmoParams.ns == CosmoParams_input.ns)
-    assert(CosmoParams.tau_fid == CosmoParams_input.tau_fid)
-    assert(CosmoParams.kmax_CLASS == CosmoParams_input.kmax_CLASS)
-    assert(CosmoParams.zmax_CLASS == CosmoParams_input.zmax_CLASS)
+    assert(CosmoParams.omegab == paramscosmo[0])
+    assert(CosmoParams.omegac == paramscosmo[1])
+    assert(CosmoParams.h_fid == paramscosmo[2])
+    assert(CosmoParams.As == paramscosmo[3])
+    assert(CosmoParams.ns == paramscosmo[4])
+    assert(CosmoParams.tau_fid == paramscosmo[5])
+    assert(CosmoParams.kmax_CLASS == paramscosmo[6])
+    assert(CosmoParams.zmax_CLASS == paramscosmo[7])
     assert(CosmoParams.zmax_CLASS >= CosmoParams.zmin_CLASS >= 0.0)
 
     #make sure the Omegas add to 1
@@ -63,7 +55,7 @@ def test_inputs():
     assert(zlistchitest == pytest.approx(CosmoParams._ztabinchi[_indextest]) )
 
 
-    _thermo = ClassCosmo.get_thermodynamics()
+    _thermo = CosmoParams.ClassCosmo.get_thermodynamics()
     ztestint_thermo = _thermo['z'][_indextest]
     Ttestint_thermo = CosmoParams.Tadiabaticint(ztestint_thermo)
     assert(Ttestint_thermo == pytest.approx(_thermo['Tb [K]'][_indextest], 0.01) )
@@ -76,20 +68,18 @@ def test_inputs():
 
 
     #NOW ASTRO INPUTS
-    AstroParams = zeus21.Astro_Parameters(UserParams, CosmoParams, astromodel = 0)
+    AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
 
     #also run the 21cmfast-like model
-    CosmoParams_input_21cmfast = zeus21.Cosmo_Parameters_Input(Flag_emulate_21cmfast=True)
-    ClassyCosmo_21cmfast = zeus21.runclass(CosmoParams_input_21cmfast)
-    CosmoParams_21cmfast = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input_21cmfast, ClassyCosmo_21cmfast)
-    AstroParams_21cmfast = zeus21.Astro_Parameters(UserParams, CosmoParams_21cmfast, astromodel = 1)
+    CosmoParams_21cmfast = zeus21.Cosmo_Parameters(UserParams=UserParams, Flag_emulate_21cmfast=True)
+    AstroParams_21cmfast = zeus21.Astro_Parameters(CosmoParams=CosmoParams_21cmfast)
 
 
     assert( 0.0 <= AstroParams_21cmfast.tstar <= 10.0)
     assert( 0.0 <= AstroParams_21cmfast.fstarmax <= 10.0)
     assert(AstroParams_21cmfast.fstar10 == pytest.approx(AstroParams_21cmfast.epsstar) )
-    assert( 0.0 <= AstroParams._clumping <= 10.0 )
-    assert( 0.0 <= AstroParams_21cmfast._clumping <= 10.0 )
+    assert( 0.0 <= AstroParams.clumping <= 10.0 )
+    assert( 0.0 <= AstroParams_21cmfast.clumping <= 10.0 )
 
 
 

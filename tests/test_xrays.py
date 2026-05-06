@@ -14,32 +14,30 @@ import pytest
 import zeus21
 import numpy as np
 
-from zeus21.xrays import *
+from zeus21.T21coefficients import Xrays_class
 
-UserParams = zeus21.User_Parameters()
+UserParams = zeus21.User_Parameters(zmin_T21=20.)
 
-CosmoParams_input = zeus21.Cosmo_Parameters_Input(kmax_CLASS = 10., zmax_CLASS = 10.) #to speed up
-ClassyCosmo = zeus21.runclass(CosmoParams_input)
-CosmoParams = zeus21.Cosmo_Parameters(UserParams, CosmoParams_input, ClassyCosmo)
-AstroParams = zeus21.Astro_Parameters(UserParams, CosmoParams)
+CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100.) #to speed up
+AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
+HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
 
-Xray_Class = Xray_class(UserParams, CosmoParams) #initialize Xray class
+Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, AstroParams, HMFintclass)
 Energylist = AstroParams.Energylist
 
 def test_xrays():
 
-    z1=10.;
-    z2=15.;
-    tau1 = Xray_Class.optical_depth(UserParams, CosmoParams, Energylist,z1,z1)
-    assert( (tau1 == np.zeros_like(tau1) ).all())
+    #test cross sections are positive
+    assert( (np.zeros_like(Energylist) <= Coeffs.Xrays.sigma_HI(Energylist)).all())
+    assert( (np.zeros_like(Energylist) <= Coeffs.Xrays.sigma_HeI(Energylist)).all())
 
-    tau2 = Xray_Class.optical_depth(UserParams, CosmoParams, Energylist,z1,z2)
-    assert( (tau2 >= np.zeros_like(tau2) ).all())
+    #test that X-ray heating is non-negative (allowing for small numerical noise)
+    assert( (Coeffs.Tk_xray >= 0.0).all())
 
-    opacity1 = Xray_Class.opacity_Xray(UserParams, CosmoParams, Energylist,z1,z2)
-    assert( (np.zeros_like(opacity1) <= opacity1).all())
-    assert( (opacity1<= np.ones_like(opacity1) ).all())
+    #test that ionization from X-rays is non-negative
+    assert( (Coeffs.Gammaion_II >= 0.0).all())
+    assert( (Coeffs.Gammaion_III >= 0.0).all())
 
-
-    assert( (np.zeros_like(Energylist) <= sigma_HI(Energylist)).all())
-    assert( (np.zeros_like(Energylist) <= sigma_HeI(Energylist)).all())
+    #test that xe is between adiabatic value and 1
+    assert( (Coeffs.xe_avg >= Coeffs.xe_avg_ad).all())
+    assert( (Coeffs.xe_avg <= 1.0).all())

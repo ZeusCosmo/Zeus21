@@ -42,13 +42,7 @@ jobs:
     - name: Install package
       run: |
         pip install -e .
-    
-    - name: Debug SFR_III function
-      env:
-        CLASSDIR: ${{ github.workspace }}/class_public
-      run: |
-        python -c "import zeus21; from zeus21.sfrd import SFR_III; import inspect; print('SFR_III parameters:', inspect.signature(SFR_III)); print('Parameter count:', len(inspect.signature(SFR_III).parameters))"
-        
+       
     - name: Run tests with coverage
       env:
         CLASSDIR: ${{ github.workspace }}/class_public
