@@ -807,10 +807,18 @@ class Power_Spectra:
 
         corrdNL = self._corrdNL
 
+        if User_Parameters.USE_ANISO_XI_ETA:
+            corrEtaParaNL = Cosmo_Parameters.xiEtaPara_RR_CF[np.ix_(self._iRnonlinear,self._iRnonlinear)]
+            corrEtaParaNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrEtaParaNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
+            corrEtaParaNL = corrEtaParaNL.reshape(1, *corrEtaParaNL.shape)
 
-        corrEtaNL = Cosmo_Parameters.xiEta_RR_CF[np.ix_(self._iRnonlinear,self._iRnonlinear)]
-        corrEtaNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrEtaNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
-        corrEtaNL = corrEtaNL.reshape(1, *corrEtaNL.shape)
+            corrEtaPerpNL = Cosmo_Parameters.xiEtaPerp_RR_CF[np.ix_(self._iRnonlinear,self._iRnonlinear)]
+            corrEtaPerpNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrEtaPerpNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
+            corrEtaPerpNL = corrEtaPerpNL.reshape(1, *corrEtaPerpNL.shape)
+        else:
+            corrEtaNL = Cosmo_Parameters.xiEta_RR_CF[np.ix_(self._iRnonlinear,self._iRnonlinear)]
+            corrEtaNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrEtaNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
+            corrEtaNL = corrEtaNL.reshape(1, *corrEtaNL.shape)
 
 
         _coeffTx_units = T21_coefficients.coeff_Gammah_Tx_III #includes -10^40 erg/s/SFR normalizaiton and erg/K conversion factor
