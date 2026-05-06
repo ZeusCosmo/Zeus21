@@ -8,10 +8,7 @@ UT Austin and Harvard CfA - January 2023
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
 
-Edited by Emily Bregou
-UT Austin - October 2025
-
-Edited by Sarah Libanore, Emilie Thelie, Hector Afonso G. Cruz
+Edited by Sarah Libanore, Emilie Thelie, Hector Afonso G. Cruz, Emily Bregou
 BGU, UT Austin - April 2026 
 """
 
@@ -175,6 +172,15 @@ class SFRD_class:
                 dzgrow = z*0.01
                 dgrowthdz = (cosmology.growth(CosmoParams,z+dzgrow) - cosmology.growth(CosmoParams,z-dzgrow))/(2.0 * dzgrow)
                 dMhdz = - massVector * np.sqrt(2/np.pi)/np.sqrt(sigmaMh2**2 - sigmaMh**2) *dgrowthdz/growth * CosmoParams.delta_crit_ST
+
+            elif(Astro_Parameters.accretion_model == 'RP16'): # Fitting function to Rodríguez-Puebla+16 N-body simulations (eq. 11, dynamically 
+                                                        # averaged parameters from table 2)
+                a = (1+z)**-1
+                beta = 10**(2.73-(1.828*a)+(0.654*a**2))
+                alpha = 1 + (0.329*a) - (0.206*a**2)
+
+                # factors of h are accounted for to give units of M_sun/year for halo masses in units of M_sun:
+                Mhdot = beta * (Mh/1e12)**alpha * cosmology.Hub(Cosmo_Parameters, z) / (100*Cosmo_Parameters.h_fid)
                 
             else:
                 print("ERROR! Have to choose an accretion model in AstroParams (accretion_model)")
