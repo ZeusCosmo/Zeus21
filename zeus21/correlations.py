@@ -807,7 +807,7 @@ class Power_Spectra:
 
         corrdNL = self._corrdNL
 
-        if User_Parameters.USE_ANISO_XI_ETA:
+        if Cosmo_Parameters.USE_ANISO_XI_ETA:
             corrEtaParaNL = Cosmo_Parameters.xiEtaPara_RR_CF[np.ix_(self._iRnonlinear,self._iRnonlinear)]
             corrEtaParaNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrEtaParaNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
             corrEtaParaNL = corrEtaParaNL.reshape(1, *corrEtaParaNL.shape)
