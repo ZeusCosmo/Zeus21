@@ -19,16 +19,31 @@ from scipy.interpolate import interp1d
 from . import constants
 from .inputs import Cosmo_Parameters
 
-def cosmo_wrapper(User_Parameters):
-    """
-    Wrapper function for all the cosmology. It takes Cosmo_Parameters_Input and returns:
-    Cosmo_Parameters, Class_Cosmo, Correlations, HMF_interpolator
-    """
+Cosmo_Param_Fields = (
+    'omegab', 'omegac', 'h_fid', 'As', 'ns', 'tau_fid',
+    'kmax_CLASS', 'zmax_CLASS', 'zmin_CLASS',
+    'Rs_min', 'Rs_max',
+    'Flag_emulate_21cmfast', 'USE_RELATIVE_VELOCITIES',
+    'USE_ANISO_XI_ETA', 'HMF_CHOICE',
+)
 
-    CosmoParams = Cosmo_Parameters(User_Parameters) 
+def cosmo_wrapper(User_Parameters, Cosmo_Parameters_Input):
+    """
+    Wrapper function for all the cosmology. 
+    It takes User_Parameters, Cosmo_Parameters_Input and returns:
+    Cosmo_Parameters, Class_Cosmo, HMF_interpolator
+    """
+    kwargs = {
+        name: getattr(Cosmo_Parameters_Input, name)
+        for name in Cosmo_Param_Fields
+        if hasattr(Cosmo_Parameters_Input, name)
+    }
+
+    CosmoParams = Cosmo_Parameters(UserParams=User_Parameters, **kwargs)
+    ClassCosmo = CosmoParams.ClassCosmo
     HMFintclass = HMF_interpolator(User_Parameters,CosmoParams)
 
-    return CosmoParams, HMFintclass
+    return CosmoParams, ClassCosmo, HMFintclass
 
 
 
