@@ -14,6 +14,7 @@ UT Austin - April 2026
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import interp1d
 
 from . import constants
 from .inputs import Cosmo_Parameters
