@@ -817,7 +817,7 @@ class Power_Spectra:
 
         corrdNL = self._corrdNL
 
-        if Cosmo_Parameters.USE_ANISO_XI_ETA:
+        if Cosmo_Parameters.USE_ANISO_XI_ETA and Cosmo_Parameters.USE_RELATIVE_VELOCITIES:
             corrEtaParaNL = Cosmo_Parameters.xiEtaPara_RR_CF[np.ix_(self._iRnonlinear,self._iRnonlinear)]
             corrEtaParaNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrEtaParaNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
             corrEtaParaNL = corrEtaParaNL.reshape(1, *corrEtaParaNL.shape)
@@ -888,7 +888,7 @@ class Power_Spectra:
         coeffsXaTxALL = coeffzp2Tx * coeffmatrixxaTx
 
         corrdNLBIG = corrdNL[:,:, np.newaxis, :, :]
-        if Cosmo_Parameters.USE_ANISO_XI_ETA:
+        if Cosmo_Parameters.USE_ANISO_XI_ETA and Cosmo_Parameters.USE_RELATIVE_VELOCITIES:
             corrEtaParaNLBIG  = corrEtaParaNL[:,:, np.newaxis, :, :]
             corrEtaPerpNLBIG = corrEtaPerpNL[:,:, np.newaxis, :, :]
         else:
@@ -903,7 +903,7 @@ class Power_Spectra:
 
         for ir in range(len(Cosmo_Parameters._Rtabsmoo)):
             corrdNL = corrdNLBIG[:,:,:,:,ir]
-            if Cosmo_Parameters.USE_ANISO_XI_ETA:
+            if Cosmo_Parameters.USE_ANISO_XI_ETA and Cosmo_Parameters.USE_RELATIVE_VELOCITIES:
                 corrEtaParaNL  = corrEtaParaNLBIG[:,:,:,:,ir]
                 corrEtaPerpNL = corrEtaPerpNLBIG[:,:,:,:,ir]
             else:
