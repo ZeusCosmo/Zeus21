@@ -792,6 +792,7 @@ class Power_Spectra:
         chDK = ne.evaluate('cc * hh / normDD / normKK')
         
         if xiEtaPerp is None:
+            xiEta = xiEtaPara
             #The below involves horribly long writing, but breaking this into pieces makes for slightly longer computation time
             xiNumerator  = ne.evaluate('afBG * (1 / (1 - 6*bb * gg * xiEta / ((1+2*bb)*(1+2*gg)))**(3/2) - 1) + ahBK * (1 / (1 - 6*bb * kk * xiEta / ((1+2*bb)*(1+2*kk)))**(3/2) - 1) + cfDG * (1 / (1 - 6*dd * gg * xiEta / ((1+2*dd)*(1+2*gg)))**(3/2) - 1) + chDK * (1 / (1 - 6*dd * kk * xiEta / ((1+2*dd)*(1+2*kk)))**(3/2) - 1)')
         else:
