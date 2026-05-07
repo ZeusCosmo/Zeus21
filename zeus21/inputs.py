@@ -7,6 +7,9 @@ UT Austin and Harvard CfA - January 2023
 
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
+
+Edited by Emily Bregou
+UT Austin - March 2026
 """
 
 from . import constants
@@ -544,7 +547,7 @@ class Astro_Parameters:
         Cosmo_Parameters: Cosmo_Parameters
             zeus21 class for the cosmological parameters. Needs to be inputed.
         accretion_model: str
-            Accretion model. "exp" for exponential, "EPS" for EPS. Default is "EPS".
+            Accretion model. "exp" for exponential, "EPS" for EPS. "RP16" for the dynamically averaged fitting function in Rodríguez-Puebla+16. Default is "EPS".
         USE_POPIII: bool
             Whether to use Pop III. Default is False.
         USE_LW_FEEDBACK: bool
