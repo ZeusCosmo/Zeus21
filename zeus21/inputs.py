@@ -225,6 +225,7 @@ class Cosmo_Parameters:
     # Flags
     Flag_emulate_21cmfast: bool = False
     USE_RELATIVE_VELOCITIES: bool = False
+    USE_ANISO_XI_ETA: bool = False
     HMF_CHOICE: str = "ST"
 
 
@@ -292,6 +293,7 @@ class Cosmo_Parameters:
         schema = {
             "Flag_emulate_21cmfast": (bool, None),
             "USE_RELATIVE_VELOCITIES": (bool, None),
+            "USE_ANISO_XI_ETA": (bool, None),
             "HMF_CHOICE": (str, {'ST','Yung'}),
         }
         validate_fields(self, schema)
@@ -450,10 +452,19 @@ class Cosmo_Parameters:
             psi0 = 1 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapezoid(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j0bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
             psi2 = -2 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapezoid(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j2bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
             
-            k_eta, P_eta = mcfit.xi2P(rVelIntp, l=0, lowring = True)((6 * psi0**2 + 3 * psi2**2), extrap = False)
+            if self.USE_ANISO_XI_ETA:
+                k_eta_para,  P_eta_para  = mcfit.xi2P(rVelIntp, l=0, lowring = True)(6 * (psi0 + psi2)**2, extrap = False)
+                k_eta_perp, P_eta_perp = mcfit.xi2P(rVelIntp, l=0, lowring = True)(6 * (psi0 - psi2/2.0)**2, extrap = False)
+                
+                ClassCosmo.pars['k_eta_para']  = k_eta_para[P_eta_para > 0]
+                ClassCosmo.pars['P_eta_para']  = P_eta_para[P_eta_para > 0]
+                ClassCosmo.pars['k_eta_perp'] = k_eta_perp[P_eta_perp > 0]
+                ClassCosmo.pars['P_eta_perp'] = P_eta_perp[P_eta_perp > 0]
+            else:
+                k_eta, P_eta = mcfit.xi2P(rVelIntp, l=0, lowring = True)((6 * psi0**2 + 3 * psi2**2), extrap = False)
             
-            ClassCosmo.pars['k_eta'] = k_eta[P_eta > 0]
-            ClassCosmo.pars['P_eta'] = P_eta[P_eta > 0]
+                ClassCosmo.pars['k_eta'] = k_eta[P_eta > 0]
+                ClassCosmo.pars['P_eta'] = P_eta[P_eta > 0]
             
     #        print("HAC: Finished running CLASS a second time to get velocity transfer functions")
             
@@ -483,9 +494,17 @@ class Cosmo_Parameters:
 
         ###HAC: Interpolated object for eta power spectrum
         if self.USE_RELATIVE_VELOCITIES == True:
-            P_eta_interp = interp1d(self.ClassCosmo.pars['k_eta'], self.ClassCosmo.pars['P_eta'], bounds_error = False, fill_value = 0)
-            self._PkEtaCF = P_eta_interp(self._klistCF)
-            self.xiEta_RR_CF = self.get_xi_R1R2(field = 'vcb')
+            if self.USE_ANISO_XI_ETA:
+                P_eta_para_interp = interp1d(self.ClassCosmo.pars['k_eta_para'], self.ClassCosmo.pars['P_eta_para'], bounds_error = False, fill_value = 0)
+                P_eta_perp_interp = interp1d(self.ClassCosmo.pars['k_eta_perp'], self.ClassCosmo.pars['P_eta_perp'], bounds_error = False, fill_value = 0)
+                self._PkEtaParaCF = P_eta_para_interp(self._klistCF)
+                self._PkEtaPerpCF = P_eta_perp_interp(self._klistCF)
+                self.xiEtaPara_RR_CF = self.get_xi_R1R2(field = 'vcb_para')
+                self.xiEtaPerp_RR_CF = self.get_xi_R1R2(field = 'vcb_perp')
+            else:
+                P_eta_interp = interp1d(self.ClassCosmo.pars['k_eta'], self.ClassCosmo.pars['P_eta'], bounds_error = False, fill_value = 0)
+                self._PkEtaCF = P_eta_interp(self._klistCF)
+                self.xiEta_RR_CF = self.get_xi_R1R2(field = 'vcb')
         else:
             self._PkEtaCF = np.zeros_like(self._PklinCF)
             self.xiEta_RR_CF = np.zeros_like(self.xi_RR_CF)
@@ -503,7 +522,13 @@ class Cosmo_Parameters:
             _PkRR = np.array([[self._PklinCF]]) * windowR1 * windowR2
         elif field == 'vcb':
             _PkRR = np.array([[self._PkEtaCF]]) * windowR1 * windowR2
+        elif field == 'vcb_para':
+            _PkRR = np.array([[self._PkEtaParaCF]]) * windowR1 * windowR2
+        elif field == 'vcb_perp':
+            _PkRR = np.array([[self._PkEtaPerpCF]]) * windowR1 * windowR2
         else:
+            if self.USE_ANISO_XI_ETA:
+                raise ValueError('field has to be either delta, vcb_para or vcb_perp in get_xi_R1R2')
             raise ValueError('field has to be either delta or vcb in get_xi_R1R2')
         
         self.rlist_CF, xi_RR_CF = self._xif(_PkRR, extrap = False)

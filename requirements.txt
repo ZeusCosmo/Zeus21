@@ -1,6 +1,7 @@
 pytest
 numpy>=2.0
 scipy
+matplotlib
 mcfit
 numexpr
 astropy

@@ -14,20 +14,38 @@ UT Austin - April 2026
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import interp1d
 
 from . import constants
 from .inputs import Cosmo_Parameters
 
-def cosmo_wrapper(User_Parameters):
-    """
-    Wrapper function for all the cosmology. It takes Cosmo_Parameters_Input and returns:
-    Cosmo_Parameters, Class_Cosmo, Correlations, HMF_interpolator
-    """
+from dataclasses import fields
 
-    CosmoParams = Cosmo_Parameters(User_Parameters) 
+Cosmo_Param_Fields = tuple(
+    f.name for f in fields(Cosmo_Parameters)
+    if f.init and f.name != "UserParams"
+)
+
+def cosmo_wrapper(User_Parameters, **kwargs):
+    """
+    Wrapper function for all the cosmology. 
+    It takes User_Parameters plus keyword arguments and returns:
+    Cosmo_Parameters, Class_Cosmo, HMF_interpolator
+    """
+    cosmo_kwargs = {
+        name: value
+        for name, value in kwargs.items()
+        if name in Cosmo_Param_Fields
+    }
+    for name in kwargs:
+        if name not in Cosmo_Param_Fields:
+            print(f"cosmo_wrapper: ignoring unsupported kwarg '{name}'")
+
+    CosmoParams = Cosmo_Parameters(UserParams=User_Parameters, **cosmo_kwargs)
+    ClassCosmo = CosmoParams.ClassCosmo
     HMFintclass = HMF_interpolator(User_Parameters,CosmoParams)
 
-    return CosmoParams, HMFintclass
+    return CosmoParams, ClassCosmo, HMFintclass
 
 
 
