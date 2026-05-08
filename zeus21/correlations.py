@@ -776,6 +776,9 @@ class Power_Spectra:
         if rho(z1, x1) / rhobar = Ae^-b tilde(eta) + Ce^-d tilde(eta) and rho(z2, x2) / rhobar = Fe^-g tilde(eta) + He^-k tilde(eta)
         Then this computes <rho(z1, x1) * rho(z2, x2)> - <rho(z1, x1)> <rho(z2, x2)>
         Refer to eq. A12 in 2407.18294 for more details
+
+        Computes velocity correlation with xiEta anisotropy, i.e., with xiEtePara and xiEtaPerp separated
+        At call site, if isotropic version is desired, isotropic xiEta is passed in for xiEtaPara and xiEtaPerp is set to None
         """
         
         aa, bb, cc, dd = etaCoeff1
