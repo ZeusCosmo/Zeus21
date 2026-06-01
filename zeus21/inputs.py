@@ -95,81 +95,85 @@ class User_Parameters:
 @dataclass(kw_only=True)
 class Cosmo_Parameters:
     """
-    Cosmological parameters (including the 6 LCDM + other parameters) for zeus21 and running of CLASS.
+    Cosmological parameters for zeus21. 
+    This class also runs and saves an instance of CLASS.
     
     Parameters
     ----------
         UserParams: User_Parameters
-            zeus21 class for the user parameters.
+            zeus21 class for the user parameters. Default is the default instance of the User_Parameters class.
         omegab: float
-            Baryon density * h^2.
+            Baryon density * h^2. Default is 0.0223828.
         omegac: float
-            CDM density * h^2.
+            CDM density * h^2. Default is 0.1201075.
         h_fid: float
-            Hubble constant / 100.
+            Hubble constant / 100. Default is 0.67810.
         As: float
-            Amplitude of initial fluctuations.
+            Amplitude of initial fluctuations. Default is 2.100549e-09.
         ns: float
-            Spectral index.
+            Spectral index. Default is 0.9660499.
         tau_fid: float
-            Optical depth to reionization.
+            Optical depth to reionization. Default is 0.05430842.
         kmax_CLASS: float
-            Maximum wavenumber to be passed to CLASS.
+            Maximum wavenumber to be passed to CLASS. Default is 500.0.
         zmax_CLASS: float
-            Maximum redshift to be passed to CLASS.
+            Maximum redshift to be passed to CLASS. Default is 50.0.
         zmin_CLASS: float
-            Minimum redshift to be passed to CLASS.
+            Minimum redshift to be passed to CLASS. Default is 5.0.
         Rs_min: float
-            Minimum radius to be passed to CLASS.
+            Minimum radius to be passed to CLASS. Default is 0.05.
+            Set to 0.929 when Flag_emulate_21cmfast is True.
         Rs_max: float
-            Maximum radius to be passed to CLASS.
+            Maximum radius to be passed to CLASS. Default is 2000.0.
+            Set to 500 when Flag_emulate_21cmfast is True.
         Flag_emulate_21cmfast: bool
             Whether zeus21 emulates 21cmFAST cosmology (used in HMF, LyA, and X-ray opacity calculations). Default is False.
             When False, sets the Star Formation Rate model to GALLUMI-like, and when True to 21cmfast-like (ignores Mc and beta and has a t* later in SFR()).
         USE_RELATIVE_VELOCITIES: bool
-            Whether to use v_cb.
+            Whether to use v_cb. Default is False.
         HMF_CHOICE: str
-            Which HMF to use.
+            Which HMF to use. Default is "ST".
             "ST" for the classic  Sheth-Tormen (f(nu)), "Yung" for the Tinker08 (f(sigma)) calibrated to Yung+23.
         
     Attributes
     ----------
     ClassCosmo: Class
-        CLASS instance to compute cosmology.
+        CLASS instance to compute cosmology. 
+        It is set with the 6 LCDM parameters set in Cosmo_Parameters.
     omegam: float
-        Matter density * h^2.
+        Matter density * h^2. Default is 0.1424903.
     OmegaM: float 
-        Matter density.
+        Matter density. Default is 0.3098830430481206.
     rhocrit: float
-        Critical density.
+        Critical density. Default is 127339073085.43648.
     OmegaR: float 
-        Radiation density.
+        Radiation density. Default is 9.096145657179167e-05.
     OmegaL: float 
-        Dark energy density. 
+        Dark energy density. Default is 0.6900259954953076.
     OmegaB: float 
-        Baryon density.
+        Baryon density. Default is 0.048677349798108865.
     rho_M0: float 
-        Actual matter density.
+        Actual matter density. Default is 39460219466.64208.
     z_rec: float
-        Recombination reshift.
+        Recombination reshift. Default is 1088.7722850526861.
     sigma_vcb: float 
-        Square root of the variance of the relative velocity field.
+        Square root of the variance of the relative velocity field. Default is 1.
     vcb_avg: float 
-        Average of the relative velocity field.
+        Average of the relative velocity field. Default is 0.0.
     Y_He: float 
-        Helium mass fraction.
+        Helium mass fraction. Default is 0.24527956117097657.
     x_He: 
-        Helium-to-hydrogen number density ratio.
+        Helium-to-hydrogen number density ratio. Default is 0.08124848240215174.
     f_H: float
-        Hydrogen number density ratio relative to baryons.
+        Hydrogen number density ratio relative to baryons. Default is 0.924856789420276.
     f_He: float 
-        Helium number density ratio relative to baryons.
+        Helium number density ratio relative to baryons. Default is 0.07514321057972385.
     mu_baryon: float 
-        Mean baryonic weight.
+        Mean baryonic weight. Default is 1.149786421719843.
     mu_baryon_Msun: float
-        Mean baryonic weight relative to the solar mass.
+        Mean baryonic weight relative to the solar mass. Default is 1.0305080308672013e-57.
     constRM: float
-        Radius-to-mass conversions for HMF. Used for CLASS input so assumes tophat.
+        Radius-to-mass conversions for HMF. Used for CLASS input so assumes tophat. Default is 165290580780.5916.
     zfofRint: interp1d 
         Interpolation for the redshift as a function of the comoving distance.
     chiofzint: interp1d 
@@ -183,21 +187,26 @@ class Cosmo_Parameters:
     growthint: interp1d
         Interpolation for the growth faction as a function of redshift.
     NRs: np.ndarray
-        Number of radii.
+        Number of radii. Default is 45.
     indexminNL: np.ndarray
         Index of the minimum radius R/cMpc in which we start doing the nonlinear calculation. 
     indexmaxNL: np.ndarray
         Index of the maximum radius R/cMpc in which we start doing the nonlinear calculation. 
     a_ST: float
-        Rescaling of the HMF barrier.
+        Rescaling of the HMF barrier. Default is 0.707.
+        Set to 0.73 when Flag_emulate_21cmfast is True.
     p_ST: float
-        Correction factor for the abundance of small mass objects.
+        Correction factor for the abundance of small mass objects. Default is 0.3.
+        Set to 0.175 when Flag_emulate_21cmfast is True.
     Amp_ST: float
-        Normalization factor for the halo mass function.
+        Normalization factor for the halo mass function. Default is 0.3222.
+        Set to 0.353 when Flag_emulate_21cmfast is True.
     delta_crit_ST: float
-        Barrier for halo to collapse in Sheth-Tormen formalism.
+        Barrier for halo to collapse in Sheth-Tormen formalism. Default is 1.686.
+        Set to 1.68 when Flag_emulate_21cmfast is True.
     a_corr_EPS: float
-        Correction to the EPS relation between nu and nu' when doing extended PS. Follows hi-z simulation results from Schneider+21.
+        Correction to the EPS relation between nu and nu' when doing extended PS. Follows hi-z simulation results from Schneider+21. Default is 0.707.
+        Set to 1.0 when Flag_emulate_21cmfast is True.
     """
     ### Non-default parameters
     UserParams: InitVar[User_Parameters]
@@ -218,8 +227,8 @@ class Cosmo_Parameters:
     zmin_CLASS: float = 5.
 
     # Shells that we integrate over at each z.
-    Rs_min: float = 0.05  ### ASK JULIAN for changing the name
-    Rs_max: float = 2000. ### ASK JULIAN for changing the name
+    Rs_min: float = 0.05 
+    Rs_max: float = 2000.
 
     # Flags
     Flag_emulate_21cmfast: bool = False
