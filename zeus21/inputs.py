@@ -38,35 +38,34 @@ class User_Parameters:
     >>> UserParams = zeus21.User_Parameters()
     >>> UserParams.precisionboost = 0.5
 
-
     Parameters
     ----------
     precisionboost: float
-        Make integrals take more points for boost in precision, the baseline being 1.0.
+        Make integrals take more points for boost in precision. Default is 1.0.
     dlogzint_target:
-        Target number of redshift bins for the redsfhit arrays in log space.
-    FLAG_FORCE_LINEAR_CF: int (False or True)
-        False to do standard calculation, True to force linearization of correlation function.
+        Target number of redshift bins for the redsfhit arrays in log space. Default is 0.02.
+    FLAG_FORCE_LINEAR_CF: bool
+        False to do standard calculation, True to force linearization of correlation function. Default is False.
     MIN_R_NONLINEAR: float
-        Minimum radius R/cMpc in which we start doing the nonlinear calculation. 
+        Minimum radius R/cMpc in which we start doing the nonlinear calculation. Default is 2.0.
         Below ~1 it will blow up because sigma > 1 eventually, and our exp(delta) approximation breaks. 
         Check if you play with it and if you change Window().
     MAX_R_NONLINEAR: float
-        Maximum radius R/cMpc in which we start doing the nonlinear calculation (above this it is very linear)
+        Maximum radius R/cMpc in which we start doing the nonlinear calculation (above this it is very linear). Default is 100.0.
     FLAG_DO_DENS_NL: bool
-        Whether to do the nonlinear (ie lognormal) calculation for the density field itself and its cross correlations. 
+        Whether to do the nonlinear (ie lognormal) calculation for the density field itself and its cross correlations. Default is False.
         Small (<3%) correction in dd, but non trivial (~10%) in d-xa and d-Tx
     FLAG_WF_ITERATIVE: bool
-        Whether to iteratively do the WF correction as in Hirata2006.
+        Whether to iteratively do the WF correction as in Hirata2006. Default is True.
     zmin_T21: float
-        Minimum redshift to which we compute the T21 signals.
+        Minimum redshift to which we compute the T21 signals. Default is 5.0.
     DO_ONLY_GLOBAL: bool
-        Whether zeus21 only runs the global T21 signal (and not fluctuations).
+        Whether zeus21 only runs the global T21 signal (and not fluctuations). Default is False.
 
     Attributes
     ----------
-    C2_RENORMALIZATION_FLAG: int (False or True)
-        Whether to renormalize the C2 oefficients (appendix in 2302.08506).
+    C2_RENORMALIZATION_FLAG: bool
+        Whether to renormalize the C2 oefficients (appendix in 2302.08506). Default is True.
     """
 
     precisionboost: float = 1.0
