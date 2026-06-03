@@ -286,7 +286,7 @@ class LF_class:
             
             return sol1.T * np.heaviside(MUV - _MUV0, 0.5) + sol2.T * np.heaviside(_MUV0 - MUV, 0.5)
 
-        elif LFParams.DUST_model == "Bouwens13": 
+        elif LFParams.DUST_model == "Zhao24": 
 
             'from https://arxiv.org/pdf/2401.07893.pdf, table 1'
             betaM0z0 = -1.58
