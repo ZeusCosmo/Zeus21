@@ -530,7 +530,7 @@ class Astro_Parameters:
         Cosmo_Parameters: Cosmo_Parameters
             zeus21 class for the cosmological parameters. Needs to be inputed.
         accretion_model: str
-            Accretion model. "exp" for exponential, "EPS" for EPS. "RP16" for the dynamically averaged fitting function in Rodríguez-Puebla+16. Default is "EPS".
+            Accretion model. "exp" for exponential, "EPS" for EPS. "RP16" for the dynamically averaged fitting function in Rodríguez-Puebla+16. Default is "exp".
         USE_POPIII: bool
             Whether to use Pop III. Default is False.
         USE_LW_FEEDBACK: bool
@@ -540,25 +540,37 @@ class Astro_Parameters:
         epsstar: float
             Amplitude of the star formation efficiency (at M_pivot). Default is 0.1.
         dlog10epsstardz: float
-            Derivative of epsstar with respect to z. Default is 0.
+            Derivative of epsstar with respect to z. Default is 0.0.
         alphastar: float
             Power law index of the star formation efficiency at low masses. Default 0.5.
         betastar: float
             Power law index of the star formation efficiency at high masses. Only used when astromodel=0. Default -0.5.
         Mc: float
             Mass at which the star formation efficiency cuts. Only used when astromodel=0. Default 3e11.
-        sigmaUV: float
-            Stochasticity (gaussian rms) in the halo-galaxy connection P(MUV | Mh). Default is 0.5.
+        epsstar_III: float
+            Amplitude of the star formation efficiency (at M_pivot) for Pop III. Default is 10**(-2.5).
+        dlog10epsstardz_III: float
+            Derivative of epsstar with respect to z for Pop III. Default is 0.0.
         alphastar_III: float
-            Power law index of the Pop III star formation efficiency at low masses. Default 0.
+            Power law index of the Pop III star formation efficiency at low masses. Default 0.0.
         betastar_III: float
-            Power law index of the Pop III star formation efficiency at high masses. Default 0.
-        fstar_III: float
-            Peak amplitude of the Pop III star formation efficiency. Default 10**(-2.5).
+            Power law index of the Pop III star formation efficiency at high masses. Default 0.0.
         Mc_III: float
             Mass at which the Pop III star formation efficiency cuts. Default 1e7.
-        dlog10epsstardz_III: float
-            Derivative of epsstar with respect to z for Pop III. Default is 0.
+        USE_POPIII_ACH: bool
+            Whether to use an atomic cooling halo (ACH) component for Pop III. Default is False.
+        DETACH_III_ACH: bool
+            Whether to have a separate set of parameters for star formation efficiency for the (ACH) component for Pop III. Default is False.
+        epsstar_III_ACH: float
+            Amplitude of the star formation efficiency (at M_pivot) for the (ACH) component for Pop III. Default is 0.0.
+        dlog10epsstardz_III_ACH: float
+            Derivative of epsstar with respect to z for the (ACH) component for Pop III. Default is 0.0.
+        alphastar_III_ACH: float
+            Power law index of the (ACH) component of Pop III star formation efficiency at low masses. Default 0.0.
+        betastar_III_ACH: float
+            Power law index of the (ACH) component of Pop III star formation efficiency at high masses. Default 0.0.
+        Mc_III_ACH: float
+            Mass at which the (ACH) component of Pop III star formation efficiency cuts. Default 1e7.
         N_alpha_perbaryon_II: float
             Number of photons between LyA and Ly Continuum per baryon (from LB05). Default is 9690.
         N_alpha_perbaryon_III: float
@@ -568,18 +580,18 @@ class Astro_Parameters:
         E0_xray: float
             Minimum energy in eV. Default is 500.
         alpha_xray: float
-            Xray SED power-law index. Default is -1.
+            Xray SED power-law index. Default is -1.0.
         L40_xray_III: float
             Soft-band (E<2 keV) lum/SFR in Xrays in units of 10^40 erg/s/(Msun/yr) for Pop III. Default is 3.0.
         alpha_xray_III: float
-            Xray SED power-law index. Default is -1.
+            Xray SED power-law index. Default is -1.0.
         Emax_xray_norm: float
-            Max energy in eV to normalize SED. Default at 2000 eV. 
+            Max energy in eV to normalize SED. Default at 2000.0 eV. 
         fesc10: float
             Amplitude of the escape fraction. Default is 0.1. 
             Escape fraction assumed to be a power law normalized (fesc10) at M=1e10 Msun with index alphaesc.
         alphaesc: float
-            Index for the escape fraction. Default is 0.
+            Index for the escape fraction. Default is 0.0.
             Escape fraction assumed to be a power law normalized (fesc10) at M=1e10 Msun with index alphaesc.
         fesc7_III: float
             Amplitude of the Pop III escape fraction. Default is 10**(-1.35). 
@@ -587,16 +599,16 @@ class Astro_Parameters:
         alphaesc_III: float
             Index for the Pop III escape fraction. Default is -0.3.
             Escape fraction assumed to be a power law normalized (fesc10) at M=1e10 Msun with index alphaesc.
-        clumping: float = 3. 
-            Clumping factor, which is z-independent and fixed for now. Default is 3, changed to 2 when Flag_emulate_21cmfast=True.
+        clumping: float
+            Clumping factor, which is z-independent and fixed for now. Default is 3.0, changed to 2.0 when Flag_emulate_21cmfast=True.
         R_linear_sigma_fit_input: float
-            Initial guess radius at which the linear fit of the barrier is computed. Default is 3.
+            Initial guess radius at which the linear fit of the barrier is computed. Default is 10.0.
         FLAG_BMF_converge: bool
             Whether zeus21 allow the BMF to try and make the average ionized fraction converge. Default is True.
         max_iter: int
             Maximum iteration allowed for the convergence of the BMF. Default is 10.
         ZMAX_REION: float
-            Maximum redshift to which the reionization quantities are computed. Default is 30.
+            Maximum redshift to which the reionization quantities are computed. Default is 30.0.
         Rbub_min: float
             Minimum bubble radius. Default is 0.05.
         A_LW: float
@@ -606,32 +618,40 @@ class Astro_Parameters:
         A_vcb: float
             Normalization for the relative velocity feedback parameter. Default is 1.0.
         beta_vcb: float
-            Spectral index for the relative velocity feedback parameter. Default 1.8
+            Spectral index for the relative velocity feedback parameter. Default 1.8.
         Mturn_fixed: float | None 
             Turn-over halo mass at which the star formation rate cuts. Default is None.
         FLAG_MTURN_SHARP: bool
             Whether to do sharp cut at Mturn_fixed or regular exponential cutoff. Only active if FLAG_MTURN_FIXED and turned on by hand. Default is False.
-        C0dust: float
-            Calibration parameter for the dust correction for UVLF. Default is 4.43 (following Meurer+99). Input 4.54 for Overzier+01.
-        C1dust: float
-            Calibration parameter for the dust correction for UVLF. Default 1.99 for Meurer99. Input 2.07 for Overzier+01.
+        FLAG_USE_PSD: bool
+            Whether to derive MUV and sigmaUV from integrating SFH. Default is False.
+        FLAG_COMPARE_BAGPIPES: bool
+            Whethher to compare with bagpipes. Default is False.
+        SEDMODEL: str = "BPASS"
+            Which SED model to use for the Greens functions. Default is "BPASS".
+            Can be set to "bagpipes", "BPASS_binaries", and "BPASS".
+        sigmaPSD: float
+            Amplitude of fluctuations in SFR arising from the power spectral density (PSD) model of SFR variability. Default is 0.5.
+            This is the baseline scatter in ln(SFR) at a reference halo mass of 10^10 Msun.
+        dsigmaPSDdlog10Mh: float
+            Slope of the scatter with respect to halo mass. Default is 0.0.
+        tauPSD: float
+            Characteristic timescale (in Myr) that enters the power spectral density (PSD) of ln(SFR). Default is 10.0.
+        dlog10tauPSDdlog10Mh: float
+            Slope of the timescale with respect to halo mass. Default is 0.0.
+        _tcut_LUV_short: float
+            Sets where the LUV short and long are separated in Myr. Default is 30.0.
+        FLAG_RENORMALIZE_AVG_SFH: bool
+            Whether to normalize the SFR in Msun/yr at each Mh. Default is True.
         
     Attributes
     ----------
-        _zpivot: float
-            Redshift at which the eps and dlogeps/dz are evaluated. Set by zeus21 to 8.
         fstarmax: float
             Peak amplitude for the star formation efficiency. Set by zeus21 to 1.
-        _zpivot_III: float
-            Redshift at which the eps and dlogeps/dz are evaluated for Pop III. Set by zeus21 to 8.
         Emax_xray_integral: float
             Max energy in eV that zeus21 integrate up to. Higher than Emax_xray_norm since photons can redshift from higher z. Set by zeus21 to 10000.
         Nen_xray: int
             Number of energies to do the xray integrals. Set by zeus21 to 30.
-        _log10EMIN_INTEGRATE: float
-            Minimum energy zeus21 integrates to, to account for photons coming from higher z that redshift. 
-        _log10EMAX_INTEGRATE: float
-            Maximum energy zeus21 integrates to, to account for photons coming from higher z that redshift. 
         Energylist: np.ndarray 
             Energies, in eV.
         dlogEnergy: float 
@@ -653,7 +673,6 @@ class Astro_Parameters:
     ### Non-default parameters
     CosmoParams: InitVar[Cosmo_Parameters]
 
-
     ### Default and init=False parameters
     # Flags
     accretion_model: str = "exp"
@@ -667,7 +686,7 @@ class Astro_Parameters:
     alphastar: float = 0.5
     betastar: float = -0.5
     Mc: float = 3e11
-    _zpivot: float = _field(init=False)
+    _zpivot: float = _field(init=False) # Redshift at which the eps and dlogeps/dz are evaluated. Set by zeus21 to 8.0.
     fstarmax: float = _field(init=False)
 
     # SFR(Mh) parameters - popIII 
@@ -676,7 +695,7 @@ class Astro_Parameters:
     alphastar_III: float = 0.
     betastar_III: float = 0.
     Mc_III: float = 1e7
-    _zpivot_III: float = _field(init=False)
+    _zpivot_III: float = _field(init=False) # Redshift at which the eps and dlogeps/dz are evaluated for Pop III. Set by zeus21 to 8.0.
 
     # SFR(Mh) parameters - popIII Atomic Cooling Component
     USE_POPIII_ACH: bool = False
@@ -686,7 +705,7 @@ class Astro_Parameters:
     alphastar_III_ACH: float = 0.
     betastar_III_ACH: float = 0.
     Mc_III_ACH: float = 1e7
-    _zpivot_III_ACH: float = _field(init=False)
+    _zpivot_III_ACH: float = _field(init=False) # Redshift at which the eps and dlogeps/dz are evaluated for the (ACH) component for Pop III. Set by zeus21 to 8.0.
 
     # Lyman-alpha parameters
     N_alpha_perbaryon_II: float = 9690 
@@ -703,8 +722,8 @@ class Astro_Parameters:
     
     # table with how many energies we integrate over
     Nen_xray: int = _field(init=False)
-    _log10EMIN_INTEGRATE: float = _field(init=False) # to account for photons coming from higher z that redshift
-    _log10EMAX_INTEGRATE: float = _field(init=False)
+    _log10EMIN_INTEGRATE: float = _field(init=False) # Minimum energy zeus21 integrates to, to account for photons coming from higher z that redshift.
+    _log10EMAX_INTEGRATE: float = _field(init=False) # Maximum energy zeus21 integrates to, to account for photons coming from higher z that redshift. 
     Energylist: np.ndarray = _field(init=False) # in eV
     dlogEnergy: float = _field(init=False) # to get dlog instead of dlog10
     
@@ -745,7 +764,7 @@ class Astro_Parameters:
     dsigmaPSDdlog10Mh: float = 0.0,
     tauPSD: float = 10.0, 
     dlog10tauPSDdlog10Mh: float = 0.0,
-    _tcut_LUV_short: float = 30.0 #where we separate LUV short and long, in Myr, 30 Myr or 2*tau, whichever longer 
+    _tcut_LUV_short: float = 30.0
     FLAG_RENORMALIZE_AVG_SFH: bool = True
     _minsigmaPSD: float = _field(init=False)
     _maxsigmaPSD: float = _field(init=False)
@@ -835,9 +854,9 @@ class Astro_Parameters:
             self.FLAG_MTURN_FIXED = True # whether to fix Mturn or use Matom(z) at each z
 
 
-        self._minsigmaPSD = 0.1 #minimum sigma for the PSD, to avoid numerical issues in the FFT
-        self._maxsigmaPSD = 4.0 #maximum sigma for the PSD, there'll never be enough samples if sigma>~6-10
-        self._mintauPSD = 1.0 # Myrminimum tau for the PSD, to avoid numerical issues in the FFT
+        self._minsigmaPSD = 0.1 # Minimum sigma for the PSD, to avoid numerical issues in the FFT
+        self._maxsigmaPSD = 4.0 # Maximum sigma for the PSD, there'll never be enough samples if sigma>~6-10
+        self._mintauPSD = 1.0 # in Myr. Minimum tau for the PSD, to avoid numerical issues in the FFT
         self._maxtauPSD = 300.0        
 
         self._tagesMyr = np.logspace(-2, 3, 79) #times (ages) we integrate over at each z, Mh, in Myr (TODO: add precisionboost)
@@ -854,16 +873,44 @@ class Astro_Parameters:
 
 @dataclass(kw_only=True)
 class LF_Parameters:
-    '''
+    """
+    Luminosity functions parameters for zeus21.
+
+    Parameters
+    ----------
+        zcenter: float
+            Redshift bin center at which to compute the luminosity functions. Default is 6.0.
+        zwidth:  float
+            Redshift bin width at which to compute the luminosity functions. Default is 0.5.
+        MUVcenters: np.ndarray | float
+            M_UV bin centers at which to compute the luminosity functions. Default is np.linspace(-23,-14,100).
+        MUVwidths: np.ndarray | float
+            M_UV bin width at which to compute the luminosity functions. Default is 0.5.
+        FLAG_RENORMALIZE_LUV 
+            Whether to renormalize the lognormal LUV with sigmaUV to recover <LUV> or otherwise <MUV>. Default is False (recommended). 
         sigmaUV: float
             Stochasticity (gaussian rms) in the halo-galaxy connection P(MUV | Mh). Default is 0.5.
-        _kappaUV: float 
-            SFR/LUV. Set by zeus21 to the value from Madau+Dickinson14.
-            Fully degenerate with epsilon.
-        _kappaUV_III: float 
-            SFR/LUV for PopIII.  Set by zeus21 to the value from Madau+Dickinson14.
-            Assume X more efficient than PopII.
-    '''
+        log10LHacenters: np.ndarray | float
+            Ha bin centers at which to compute the luminosity functions, given in log10. Default is np.linspace(38,45,10).
+        log10LHawidths: np.ndarray | float
+            Ha bin width at which to compute the luminosity functions, given in log10. Default is 0.5.
+        FLAG_COMPUTE_UVLF: bool
+            Whether to compute the UV LF. Default is True.
+        FLAG_COMPUTE_HaLF: bool = False
+            Whether to compute the Ha LF. Default is True.
+        DUST_FLAG: bool
+            Whether to include dust attenuation to the LF calculations. Default is True.
+        DUST_model: str
+            Which dust model to use. Default is "Bouwens13". Can also be "Zhao24" (https://arxiv.org/pdf/2401.07893.pdf, table 1).
+        HIGH_Z_DUST: bool
+            Whether to do dust at higher z than 0 or set to 0. Fix at beta(z=8) result if so. Default is True.
+        C0dust: float
+            Calibration parameter for the dust correction for UVLF. Default is 4.43 (following Meurer+99). Input 4.54 for Overzier+01.
+        C1dust: float
+            Calibration parameter for the dust correction for UVLF. Default 1.99 for Meurer99. Input 2.07 for Overzier+01.
+        sigma_times_AUV_dust: float
+            If not 0, normalization factor to the sigma UV of dust. Default is 0.0.
+    """
 
     zcenter: float = 6. 
     zwidth:  float = 0.5
@@ -888,8 +935,8 @@ class LF_Parameters:
     _zmaxdata: float = 8.0
     C0dust: float = 4.43
     C1dust: float = 1.99 #4.43, 1.99 is Meurer99; 4.54, 2.07 is Overzier01
-    _kappaUV: float = _field(init=False) #SFR/LUV, value from Madau+Dickinson14, fully degenerate with epsilon
-    _kappaUV_III: float = _field(init=False) #SFR/LUV for PopIII. Assume X more efficient than PopII   
+    _kappaUV: float = _field(init=False) # in SFR/LUV. Set by zeus21 to the value from Madau+Dickinson14, fully degenerate with epsilon
+    _kappaUV_III: float = _field(init=False) # in SFR/LUV for PopIII.  Set by zeus21 to the value from Madau+Dickinson14, fully degenerate with epsilon. Assume X more efficient than PopII.  
 
     sigma_times_AUV_dust: float = 0.
 
@@ -949,6 +996,7 @@ class LF_Parameters:
 
 
 def validate_fields(obj, schema: dict):
+    """ Helper function to check whether the input parameters are set with the proper values. """
     for field, (expected_type, allowed_values) in schema.items():
         value = getattr(obj, field)
 
