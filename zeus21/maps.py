@@ -9,6 +9,9 @@ UT Austin - March 2026
 
 from . import cosmology
 from . import z21_utilities
+from . import inputs
+from . import T21coefficients
+from . import correlations
 
 import numpy as np
 import powerbox as pbox
@@ -16,100 +19,159 @@ from scipy.interpolate import interp1d
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from tqdm import trange
 import time
+from dataclasses import dataclass, field as _field, InitVar
 
 
-class CoevalMaps:
-    "Class that calculates and keeps coeval maps, one z at a time."
-
-    def __init__(self, T21_coefficients, Power_Spectrum, z, Lbox=600, Nbox=200, KIND=None, seed=1605):
-        'the KIND flag determines the kind of map you make. Options are:'
-        'KIND = 0, only T21 lognormal. OK approximation'
-        'KIND = 1, density and T21 correlated. T21 has a gaussian and a lognormal component. Decent approximation'
-        'KIND = 2, all maps'
-        'KIND = 3, same as 2 but integrating over all R. Slow but most accurate'
-
-        zlist = T21_coefficients.zintegral 
-        _iz = min(range(len(zlist)), key=lambda i: np.abs(zlist[i]-z)) #pick closest z
-        self.T21global = T21_coefficients.T21avg[_iz]
-        self.Nbox = Nbox
-        self.Lbox = Lbox
-        self.seed = seed
-        self.z = zlist[_iz] #will be slightly different from z input
-
-        klist = Power_Spectrum.klist_PS
-        k3over2pi2 = klist**3/(2*np.pi**2)
-
-
-        if (KIND == 0): #just T21, ~gaussian
-                
-            P21 = Power_Spectrum.Deltasq_T21_lin[_iz]/k3over2pi2
-            P21_spl = spline(np.log(klist), np.log(P21/self.T21global**2)) #spline over log values
+@dataclass(kw_only=True)
+class ReioMapsConfig:
+    """
+    All arguments of reionization_maps that have default values
+    """
+    input_boxlength: float = 300.
+    ncells: int = 300
+    seed: int = 1234
+    r_precision: float = 1.
+    Rs: list | np.ndarray | None = None
+    barrier: np.ndarray = None
+    PRINT_TIMER: bool = True
+    LOGNORMAL_DENSITY: bool = False
+    COMPUTE_DENSITY_AT_ALLZ: bool = False
+    COMPUTE_MASSWEIGHTED: bool = False
+    lowres_massweighting: int = 1
+    COMPUTE_PARTIAL_IONIZATIONS: bool = False
+    COMPUTE_PARTIAL_AND_MASSWEIGHTED: bool = False
+    COMPUTE_ZREION: bool = False
 
 
+@dataclass()
+class T21_maps:
+    # arguments to pass
+    CosmoParams: InitVar[inputs.Cosmo_Parameters]
+    CoeffStructure: InitVar[T21coefficients.get_T21_coefficients]
+    PowerSpectra: InitVar[correlations.Power_Spectra]
+    input_z: np.ndarray
+
+    # reionization
+    ReioMaps_config: ReioMapsConfig = _field(default_factory=ReioMapsConfig)
+    ReioMaps: reionization_maps = _field(init=False)
+
+    # flag 
+    USE_xHII_MAPS: bool = _field(default=True)
+
+    # box params
+    input_boxlength: float = _field(default=300.)
+    ncells: int = _field(default=300)
+    seed: int = _field(default=1234)
+
+    # boxes
+    density: np.ndarray = _field(init=False)
+    T21_lin: np.ndarray = _field(init=False)
+    T21_NL: np.ndarray = _field(init=False)
+    T21: np.ndarray = _field(init=False)
+
+    # other attributes
+    _klist: np.ndarray = _field(init=False)
+    _k3over2pi2: np.ndarray = _field(init=False)
+    T21avg: np.ndarray = _field(init=False)
+    _Dsq_T21_lin: np.ndarray = _field(init=False)
+    _Dsq_T21: np.ndarray = _field(init=False)
+    _PdT21: np.ndarray = _field(init=False)
+    _Pd: np.ndarray = _field(init=False)
+
+
+    def __post_init__(self, CosmoParams, CoeffStructure, PowerSpectra):
+        ### z and k
+        _iz = z21_utilities.find_nearest_idx(CoeffStructure.zlist, self.input_z)
+        self._klist = PowerSpectra.klist_PS
+        self._k3over2pi2 = self._klist**3/(2*np.pi**2)
+
+        ### get T21 avg
+        if self.USE_xHII_MAPS:
+            # in this case, we will use the simulated xHI with reionization_maps
+            # so, we need to remove the xHI contribution from T21avg
+            self.T21avg = (CoeffStructure.T21avg / CoeffStructure.xHI_avg)[_iz] 
+        else: 
+            self.T21avg = CoeffStructure.T21avg[_iz]
+        
+        ### get power spectra
+        self._Dsq_T21_lin = (PowerSpectra.Deltasq_T21_lin[_iz].T * self.T21avg**2).T
+        self._Dsq_T21 = (PowerSpectra.Deltasq_T21[_iz].T * self.T21avg**2).T
+        self._PdT21 = PowerSpectra.Deltasq_dT21[_iz]/self._k3over2pi2
+        self._Pd = PowerSpectra.Deltasq_d_lin[_iz,:]/self._k3over2pi2
+
+        ### generate densities
+        self.density, pbs = self.generate_density_pb()
+
+
+        ### map of the linear T21 fluctuation, better to use the cross to keep sign, at linear level same
+        self.T21_lin = self.generate_T21_lin(pbs)
+
+        ### map of the nonlinear correction
+        # built as \sum_R [e^(gR dR) - gR dR]. Uncorrelatd with all dR so just a separate field!
+        # NOTE: its not guaranteed to work, excess power can be negative in some cases! Not for each component xa, Tk, but yes for T21
+        self.T21_NL = self.generate_T21_NL()
+
+        ### add T21 lin and nonlin correction together
+        self.T21 = self.T21_lin + self.T21_NL
+
+        if self.USE_xHII_MAPS:
+            ### generate xHII
+            self.ReioMaps_config.input_boxlength = self.input_boxlength
+            self.ReioMaps_config.ncells = self.ncells
+            self.ReioMaps_config.seed = self.seed
+            self.ReioMaps = reionization_maps(CosmoParams, CoeffStructure, self.input_z, **vars(self.ReioMaps_config))
+
+            ### include ionization
+            self.T21 = self.T21 * (1. - self.ReioMaps.ion_field_allz)
+        
+        self.T21[np.isnan(self.T21)] = 0.
+
+    
+
+    def generate_density_pb(self):
+        density = np.zeros((len(self.input_z),self.ncells,self.ncells,self.ncells))
+        pbs = []
+        for iz, z in enumerate(self.input_z):
+            Pd_spl = spline(np.log(self._klist), np.log(self._Pd[iz])) # density at min z
             pb = pbox.PowerBox(
-                N=self.Nbox,                     
-                dim=3,                     
-                pk = lambda k: np.exp(P21_spl(np.log(k))), 
-                boxlength = self.Lbox,           
-                seed = self.seed                
-            )
-
-            self.T21map = self.T21global * (1 + pb.delta_x() )
-            self.deltamap = None
-
-
-            
-        elif (KIND == 1):
-            Pd = Power_Spectrum.Deltasq_d_lin[_iz,:]/k3over2pi2
-            #Pdinterp = interp1d(klist,Pd,fill_value=0.0,bounds_error=False) OLD
-            Pd_spl = spline(np.log(klist), np.log(Pd))
-
-            pb = pbox.PowerBox(
-                N=self.Nbox,                     
+                N=self.ncells,                     
                 dim=3,                     
                 pk = lambda k: np.exp(Pd_spl(np.log(k))), 
-                boxlength = self.Lbox,           
+                boxlength = self.input_boxlength,           
                 seed = self.seed               
             )
+            density[iz] = pb.delta_x()
+            pbs.append(pb)
+        return density, pbs
 
-            self.deltamap = pb.delta_x() #density map, basis of this KIND of approach
-
-            #then we make a map of the linear T21 fluctuation, better to use the cross to keep sign, at linear level same 
-            PdT21 = Power_Spectrum.Deltasq_dT21[_iz]/k3over2pi2
-
-            #powerratioint = interp1d(klist,PdT21/Pd,fill_value=0.0,bounds_error=False) OLD
-            powerratio_spl = spline(klist, PdT21/Pd) #cross can be negative, so can't interpolate over log values
-
-
-            deltak = pb.delta_k()
-
+    def generate_T21_lin(self, pbs):
+        T21_lin = np.zeros((len(self.input_z),self.ncells,self.ncells,self.ncells))
+        for iz, z in enumerate(self.input_z):
+            pb = pbs[iz]
+            powerratio_spl = spline(self._klist, self._PdT21[iz]/self._Pd[iz]) #cross can be negative, so can't interpolate over log values
             powerratio = powerratio_spl(pb.k())
-            T21lin_k = powerratio * deltak
-            self.T21maplin= self.T21global + z21_utilities.powerboxCtoR(pb,mapkin = T21lin_k)
+            T21lin_k = powerratio * pb.delta_k()
+            T21_lin[iz] = self.T21avg[iz] + z21_utilities.powerboxCtoR(pb, mapkin = T21lin_k) 
+            pbs.append(pb)
+        
+        return T21_lin
 
-            #now make a nonlinear correction, built as \sum_R [e^(gR dR) - gR dR]. Uncorrelatd with all dR so just a separate field!
-            #NOTE: its not guaranteed to work, excess power can be negative in some cases! Not for each component xa, Tk, but yes for T21
-            excesspower21 = (Power_Spectrum.Deltasq_T21[_iz,:]-Power_Spectrum.Deltasq_T21_lin[_iz,:])/k3over2pi2
-
-            lognormpower = interp1d(klist,excesspower21/self.T21global**2,fill_value=0.0,bounds_error=False)
-            #G or logG? TODO revisit
-            pbe = pbox.LogNormalPowerBox(
-                N=self.Nbox,                     
+    def generate_T21_NL(self):
+        T21_NL = np.zeros((len(self.input_z),self.ncells,self.ncells,self.ncells))
+        for iz, z in enumerate(self.input_z):
+            excesspower21 = (self._Dsq_T21[iz]-self._Dsq_T21_lin[iz])/self._k3over2pi2
+            lognormpower = interp1d(self._klist, excesspower21/self.T21avg[iz]**2, fill_value=0.0, bounds_error=False)
+            pbe = pbox.LogNormalPowerBox(         #G or logG? TODO revisit
+                N=self.ncells,                     
                 dim=3,                     
                 pk = lambda k: lognormpower(k), 
-                boxlength = self.Lbox,           
+                boxlength = self.input_boxlength,           
                 seed = self.seed+1                # uncorrelated
             )
-
-            self.T21mapNL = self.T21global*pbe.delta_x()
-
-            #and finally, just add them together!
-            self.T21map = self.T21maplin +  self.T21mapNL
+            T21_NL[iz] = self.T21avg[iz] * pbe.delta_x()
+        return T21_NL
 
 
-
-        else:
-            print('ERROR, KIND not implemented yet!')
 
 
 class reionization_maps:
