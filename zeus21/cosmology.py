@@ -28,11 +28,19 @@ def time_at_redshift(ClassyCosmo,z):
         Sets up Class cosmology.
     z: float
         Redshift.
+
+    Returns
+    -------
+    float
+        Age of the Universe in Gyrs.
     """
+
     background = ClassyCosmo.get_background()
     classy_t, classy_z = background['proper time [Gyr]'], background['z']
     classy_tinterp = interp1d(classy_z, classy_t)
+
     return classy_tinterp(z)
+
 
 def redshift_at_time(ClassyCosmo,t):
     """
@@ -44,10 +52,17 @@ def redshift_at_time(ClassyCosmo,t):
         Sets up Class cosmology.
     t: float
         Age in Gyrs.
+
+    Returns
+    -------
+    float   
+        Redshift corresponding to the given age of the Universe.
     """
+
     background = ClassyCosmo.get_background()
     classy_t, classy_z = background['proper time [Gyr]'], background['z']
     classy_tinterp = interp1d(classy_t, classy_z)
+    
     return classy_tinterp(t)
 
 
