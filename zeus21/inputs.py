@@ -10,6 +10,10 @@ JHU - July 2024
 
 Edited by Emily Bregou
 UT Austin - March 2026
+
+
+Edited by Hector Afonso G. Cruz
+NYU/CCA - June 2026
 """
 
 from . import constants
@@ -48,7 +52,7 @@ class User_Parameters:
         False to do standard calculation, True to force linearization of correlation function. Default is False.
     MIN_R_NONLINEAR: float
         Minimum radius R/cMpc in which we start doing the nonlinear calculation. Default is 2.0.
-        Below ~1 it will blow up because sigma > 1 eventually, and our exp(delta) approximation breaks. 
+        Below ~1 it will blow up because sigma > 1 eventually, and our exp(delta) approximation breaks.
         Check if you play with it and if you change Window().
     MAX_R_NONLINEAR: float
         Maximum radius R/cMpc in which we start doing the nonlinear calculation (above this it is very linear). Default is 100.0.
@@ -61,6 +65,9 @@ class User_Parameters:
         Minimum redshift to which we compute the T21 signals. Default is 5.0.
     DO_ONLY_GLOBAL: bool
         Whether zeus21 only runs the global T21 signal (and not fluctuations). Default is False.
+    USE_BARYON_FLAG: bool
+        Whether zeus21 computes 21-cm power spectra with (1+delta_b) prefactor instead of (1+delta)
+        This means LSS terms use P_baryon(k) and P_baryon_x_cdm(k). Default is True.
 
     Attributes
     ----------
@@ -77,6 +84,7 @@ class User_Parameters:
     FLAG_WF_ITERATIVE: bool = True
     zmin_T21: float = 5.
     DO_ONLY_GLOBAL: bool = False
+    USE_BARYON_FLAG: bool = True
 
     C2_RENORMALIZATION_FLAG: int = _field(init=False)
 
@@ -95,7 +103,7 @@ class User_Parameters:
 @dataclass(kw_only=True)
 class Cosmo_Parameters:
     """
-    Cosmological parameters for zeus21. 
+    Cosmological parameters for zeus21.
     This class also runs and saves an instance of CLASS.
     
     Parameters
@@ -138,60 +146,60 @@ class Cosmo_Parameters:
     Attributes
     ----------
     ClassCosmo: Class
-        CLASS instance to compute cosmology. 
+        CLASS instance to compute cosmology.
         It is set with the 6 LCDM parameters set in Cosmo_Parameters.
     omegam: float
         Matter density * h^2. Default is 0.1424903.
-    OmegaM: float 
+    OmegaM: float
         Matter density. Default is 0.3098830430481206.
     rhocrit: float
         Critical density. Default is 127339073085.43648.
-    OmegaR: float 
+    OmegaR: float
         Radiation density. Default is 9.096145657179167e-05.
-    OmegaL: float 
+    OmegaL: float
         Dark energy density. Default is 0.6900259954953076.
-    OmegaB: float 
+    OmegaB: float
         Baryon density. Default is 0.048677349798108865.
-    rho_M0: float 
+    rho_M0: float
         Actual matter density. Default is 39460219466.64208.
     z_rec: float
         Recombination reshift. Default is 1088.7722850526861.
-    sigma_vcb: float 
+    sigma_vcb: float
         Square root of the variance of the relative velocity field. Default is 1.
-    vcb_avg: float 
+    vcb_avg: float
         Average of the relative velocity field. Default is 0.0.
-    Y_He: float 
+    Y_He: float
         Helium mass fraction. Default is 0.24527956117097657.
-    x_He: 
+    x_He:
         Helium-to-hydrogen number density ratio. Default is 0.08124848240215174.
     f_H: float
         Hydrogen number density ratio relative to baryons. Default is 0.924856789420276.
-    f_He: float 
+    f_He: float
         Helium number density ratio relative to baryons. Default is 0.07514321057972385.
-    mu_baryon: float 
+    mu_baryon: float
         Mean baryonic weight. Default is 1.149786421719843.
     mu_baryon_Msun: float
         Mean baryonic weight relative to the solar mass. Default is 1.0305080308672013e-57.
     constRM: float
         Radius-to-mass conversions for HMF. Used for CLASS input so assumes tophat. Default is 165290580780.5916.
-    zfofRint: interp1d 
+    zfofRint: interp1d
         Interpolation for the redshift as a function of the comoving distance.
-    chiofzint: interp1d 
+    chiofzint: interp1d
         Interpolation for the comoving distance as a function of the redshift.
-    Hofzint: interp1d 
+    Hofzint: interp1d
         Interpolation for the Hubble rate as a function of the redshift.
-    Tadiabaticint: 
+    Tadiabaticint:
         Interpolation for the adiabatic temperature as a function of redshift.
-    xetanhint: interp1d 
+    xetanhint: interp1d
         Interpolation for the electron fraction as a function of redshift.
     growthint: interp1d
         Interpolation for the growth faction as a function of redshift.
     NRs: np.ndarray
         Number of radii. Default is 45.
     indexminNL: np.ndarray
-        Index of the minimum radius R/cMpc in which we start doing the nonlinear calculation. 
+        Index of the minimum radius R/cMpc in which we start doing the nonlinear calculation.
     indexmaxNL: np.ndarray
-        Index of the maximum radius R/cMpc in which we start doing the nonlinear calculation. 
+        Index of the maximum radius R/cMpc in which we start doing the nonlinear calculation.
     a_ST: float
         Rescaling of the HMF barrier. Default is 0.707.
         Set to 0.73 when Flag_emulate_21cmfast is True.
@@ -227,7 +235,7 @@ class Cosmo_Parameters:
     zmin_CLASS: float = 5.
 
     # Shells that we integrate over at each z.
-    Rs_min: float = 0.05 
+    Rs_min: float = 0.05 #HAC: CHANGE back to 0.05
     Rs_max: float = 2000.
 
     # Flags
@@ -320,7 +328,7 @@ class Cosmo_Parameters:
         _zlistforage[-1]=0.0
         _Hztab = self.ClassCosmo.z_of_r(_zlistforage)[1] #chi and dchi/dz
         
-        ### TODO: check if this is the same as cosmic time in cosmology 
+        ### TODO: check if this is the same as cosmic time in cosmology
         tagetabyr = -cumulative_trapezoid(constants.Mpctoyr/_Hztab/(1+_zlistforage),_zlistforage)
         tagetabyr = np.insert(tagetabyr,0,0)
 
@@ -369,7 +377,7 @@ class Cosmo_Parameters:
             self.Rs_max = 500. #same as R_XLy_MAX in 21cmFAST. Too low?
             
         # radii
-        self.NRs = np.floor(45*UserParams.precisionboost).astype(int)
+        self.NRs = np.floor(45*UserParams.precisionboost).astype(int) #HAC: Change back from 90 to 45
         self._Rtabsmoo = np.logspace(np.log10(self.Rs_min), np.log10(self.Rs_max), self.NRs) # Smoothing Radii in Mpc com
         self._dlogRR = np.log(self.Rs_max/self.Rs_min)/(self.NRs-1.0)
 
@@ -400,7 +408,7 @@ class Cosmo_Parameters:
         ClassCosmo = Class()
         ClassCosmo.set({'omega_b': self.omegab,'omega_cdm': self.omegac,
                         'h': self.h_fid,'A_s': self.As,'n_s': self.ns,'tau_reio': self.tau_fid})
-        ClassCosmo.set({'output':'mPk','lensing':'no','P_k_max_1/Mpc':self.kmax_CLASS, 'z_max_pk': self.zmax_CLASS}) ###HAC: add vTK to outputs
+        ClassCosmo.set({'output':'mPk,mTk','lensing':'no','P_k_max_1/Mpc':self.kmax_CLASS, 'z_max_pk': self.zmax_CLASS})
         ClassCosmo.set({'gauge':'synchronous'})
         #hfid = ClassCosmo.h() # get reduced Hubble for conversions to 1/Mpc
 
@@ -412,7 +420,7 @@ class Cosmo_Parameters:
         ###HAC: Adding VCB feedback via a second run of CLASS:
         if self.USE_RELATIVE_VELOCITIES:
             
-            kMAX_VCB = 50.0
+            kMAX_VCB = 100.0
             ###HAC: getting z_rec from first CLASS run
             z_rec = ClassCosmo.get_current_derived_parameters(['z_rec'])['z_rec']
             z_drag = ClassCosmo.get_current_derived_parameters(['z_d'])['z_d']
@@ -425,7 +433,7 @@ class Cosmo_Parameters:
             ClassCosmoVCB.set({'P_k_max_1/Mpc':kMAX_VCB, 'z_max_pk':12000})
             ClassCosmoVCB.set({'gauge':'newtonian'})
             ClassCosmoVCB.compute()
-            velTransFunc = ClassCosmoVCB.get_transfer(z_drag)
+            velTransFunc = ClassCosmoVCB.get_transfer(50)
 
             kVel = velTransFunc['k (h/Mpc)'] * self.h_fid
             theta_b = velTransFunc['t_b']
@@ -500,8 +508,7 @@ class Cosmo_Parameters:
 
 
     def get_xi_R1R2 (self, field = None):
-        "same as get_xi_z0_lin but smoothed over two different radii with Window(k,R) \
-        same separations rs as get_xi_z0_lin so it does not output them."
+        "Get correlation function of density, linearly extrapolated to z=0, smoothed over two different radii with Window(k,R)"
         
         lengthRarray = self.NRs
         windowR1 = z21_utilities.Window(self._klistCF.reshape(lengthRarray, 1, 1), self._Rtabsmoo.reshape(1, 1, lengthRarray))
@@ -586,15 +593,15 @@ class Astro_Parameters:
         alpha_xray_III: float
             Xray SED power-law index. Default is -1.0.
         Emax_xray_norm: float
-            Max energy in eV to normalize SED. Default at 2000.0 eV. 
+            Max energy in eV to normalize SED. Default at 2000.0 eV.
         fesc10: float
-            Amplitude of the escape fraction. Default is 0.1. 
+            Amplitude of the escape fraction. Default is 0.1.
             Escape fraction assumed to be a power law normalized (fesc10) at M=1e10 Msun with index alphaesc.
         alphaesc: float
             Index for the escape fraction. Default is 0.0.
             Escape fraction assumed to be a power law normalized (fesc10) at M=1e10 Msun with index alphaesc.
         fesc7_III: float
-            Amplitude of the Pop III escape fraction. Default is 10**(-1.35). 
+            Amplitude of the Pop III escape fraction. Default is 10**(-1.35).
             Escape fraction assumed to be a power law normalized (fesc10) at M=1e10 Msun with index alphaesc.
         alphaesc_III: float
             Index for the Pop III escape fraction. Default is -0.3.
@@ -619,7 +626,7 @@ class Astro_Parameters:
             Normalization for the relative velocity feedback parameter. Default is 1.0.
         beta_vcb: float
             Spectral index for the relative velocity feedback parameter. Default 1.8.
-        Mturn_fixed: float | None 
+        Mturn_fixed: float | None
             Turn-over halo mass at which the star formation rate cuts. Default is None.
         FLAG_MTURN_SHARP: bool
             Whether to do sharp cut at Mturn_fixed or regular exponential cutoff. Only active if FLAG_MTURN_FIXED and turned on by hand. Default is False.
@@ -630,9 +637,9 @@ class Astro_Parameters:
         SEDMODEL: str = "BPASS"
             Which SED model to use for the Greens functions. Default is "BPASS".
             Can be set to "bagpipes", "BPASS_binaries", and "BPASS".
-        normLHa_ZIMF: float 
-            Floating normalization of the LHa luminosity compared to the baseline SEDMODEL to account for HMF or metallicity changes. Default is 1.0 
-        alphanormLHa_ZIMF: 
+        normLHa_ZIMF: float
+            Floating normalization of the LHa luminosity compared to the baseline SEDMODEL to account for HMF or metallicity changes. Default is 1.0
+        alphanormLHa_ZIMF:
             Power-law index of normLHa_ZIMF against halo mass. Default is 0.0
         sigmaPSD: float
             Amplitude of fluctuations in SFR arising from the power spectral density (PSD) model of SFR variability. Default is 0.5.
@@ -656,9 +663,9 @@ class Astro_Parameters:
             Max energy in eV that zeus21 integrate up to. Higher than Emax_xray_norm since photons can redshift from higher z. Set by zeus21 to 10000.
         Nen_xray: int
             Number of energies to do the xray integrals. Set by zeus21 to 30.
-        Energylist: np.ndarray 
+        Energylist: np.ndarray
             Energies, in eV.
-        dlogEnergy: float 
+        dlogEnergy: float
             Used to get dlog instead of dlog10.
         N_ion_perbaryon_II: int
             Number of ionizing photons per baryon. Fixed for PopII-type (Salpeter) by zeus21 to 5000.
@@ -686,14 +693,14 @@ class Astro_Parameters:
 
     # SFR(Mh) parameters - popII
     epsstar: float = 0.1
-    dlog10epsstardz: float = 0.0 
+    dlog10epsstardz: float = 0.0
     alphastar: float = 0.5
     betastar: float = -0.5
     Mc: float = 3e11
     _zpivot: float = _field(init=False) # Redshift at which the eps and dlogeps/dz are evaluated. Set by zeus21 to 8.0.
     fstarmax: float = _field(init=False)
 
-    # SFR(Mh) parameters - popIII 
+    # SFR(Mh) parameters - popIII
     epsstar_III: float = 10**(-2.5)
     dlog10epsstardz_III: float = 0.0
     alphastar_III: float = 0.
@@ -702,6 +709,7 @@ class Astro_Parameters:
     _zpivot_III: float = _field(init=False) # Redshift at which the eps and dlogeps/dz are evaluated for Pop III. Set by zeus21 to 8.0.
 
     # SFR(Mh) parameters - popIII Atomic Cooling Component
+#    Mup3TEMP: float = 10**8.387007493446207#HAC TEMPORARY: Delete!!! Only for BAO/VAO comparison
     USE_POPIII_ACH: bool = False
     DETACH_III_ACH: bool = False
     epsstar_III_ACH: float = 0.
@@ -712,27 +720,27 @@ class Astro_Parameters:
     _zpivot_III_ACH: float = _field(init=False) # Redshift at which the eps and dlogeps/dz are evaluated for the (ACH) component for Pop III. Set by zeus21 to 8.0.
 
     # Lyman-alpha parameters
-    N_alpha_perbaryon_II: float = 9690 
+    N_alpha_perbaryon_II: float = 9690
     N_alpha_perbaryon_III: float = 17900
 
     # Xray parameters, assumed power-law for now
     L40_xray: float = 3.0
     E0_xray: float = 500.
-    alpha_xray: float = -1.0 
-    L40_xray_III: float = 3.0 
+    alpha_xray: float = -1.0
+    L40_xray_III: float = 3.0
     alpha_xray_III: float = -1.0
-    Emax_xray_norm: float = 2000 
+    Emax_xray_norm: float = 2000
     Emax_xray_integral: float = _field(init=False) # Max energy in eV that we integrate up to. Higher than Emax_xray_norm since photons can redshift from higher z
     
     # table with how many energies we integrate over
     Nen_xray: int = _field(init=False)
     _log10EMIN_INTEGRATE: float = _field(init=False) # Minimum energy zeus21 integrates to, to account for photons coming from higher z that redshift.
-    _log10EMAX_INTEGRATE: float = _field(init=False) # Maximum energy zeus21 integrates to, to account for photons coming from higher z that redshift. 
+    _log10EMAX_INTEGRATE: float = _field(init=False) # Maximum energy zeus21 integrates to, to account for photons coming from higher z that redshift.
     Energylist: np.ndarray = _field(init=False) # in eV
     dlogEnergy: float = _field(init=False) # to get dlog instead of dlog10
     
     # Reionization parameters
-    fesc10: float = 0.1 
+    fesc10: float = 0.1
     alphaesc: float = 0.0
     fesc7_III: float = 10**(-1.35)
     alphaesc_III: float = -0.3
@@ -755,7 +763,7 @@ class Astro_Parameters:
     A_vcb: float = 1.0
     beta_vcb: float = 1.8
 
-    # 21cmFAST emulation: SFE parameters 
+    # 21cmFAST emulation: SFE parameters
     Mturn_fixed: float | None = None
     FLAG_MTURN_SHARP: bool = False
     FLAG_MTURN_FIXED: bool = _field(init=False) # whether to fix Mturn or use Matom(z) at each z
@@ -764,11 +772,11 @@ class Astro_Parameters:
     FLAG_USE_PSD: bool = False
     FLAG_COMPARE_BAGPIPES: bool = False
     SEDMODEL: str = "BPASS"
-    normLHa_ZIMF: float = 1.0 
+    normLHa_ZIMF: float = 1.0
     alphanormLHa_ZIMF: float = 0.0
     sigmaPSD: float = 0.5,
     dsigmaPSDdlog10Mh: float = 0.0,
-    tauPSD: float = 10.0, 
+    tauPSD: float = 10.0,
     dlog10tauPSDdlog10Mh: float = 0.0,
     _tcut_LUV_short: float = 30.0
     FLAG_RENORMALIZE_AVG_SFH: bool = True
@@ -832,9 +840,9 @@ class Astro_Parameters:
         if CosmoParams.Flag_emulate_21cmfast:
             self.N_ion_perbaryon_III = 44000 # fixed for PopIII-type, from Klessen & Glover 2023 Table A2 (2303.12500)
         else:
-            self.N_ion_perbaryon_III = 52480 
+            self.N_ion_perbaryon_III = 52480
 
-        ### HAC: LW feedback parameters   
+        ### HAC: LW feedback parameters
         if not self.USE_LW_FEEDBACK:
             self.A_LW = 0.0
             self.beta_LW = 0.0
@@ -863,7 +871,7 @@ class Astro_Parameters:
         self._minsigmaPSD = 0.1 # Minimum sigma for the PSD, to avoid numerical issues in the FFT
         self._maxsigmaPSD = 4.0 # Maximum sigma for the PSD, there'll never be enough samples if sigma>~6-10
         self._mintauPSD = 1.0 # in Myr. Minimum tau for the PSD, to avoid numerical issues in the FFT
-        self._maxtauPSD = 300.0        
+        self._maxtauPSD = 300.0
 
         self._tagesMyr = np.logspace(-2, 3, 79) #times (ages) we integrate over at each z, Mh, in Myr (TODO: add precisionboost)
 
@@ -892,8 +900,8 @@ class LF_Parameters:
             M_UV bin centers at which to compute the luminosity functions. Default is np.linspace(-23,-14,100).
         MUVwidths: np.ndarray | float
             M_UV bin width at which to compute the luminosity functions. Default is 0.5.
-        FLAG_RENORMALIZE_LUV 
-            Whether to renormalize the lognormal LUV with sigmaUV to recover <LUV> or otherwise <MUV>. Default is False (recommended). 
+        FLAG_RENORMALIZE_LUV
+            Whether to renormalize the lognormal LUV with sigmaUV to recover <LUV> or otherwise <MUV>. Default is False (recommended).
         sigmaUV: float
             Stochasticity (gaussian rms) in the halo-galaxy connection P(MUV | Mh). Default is 0.5.
         log10LHacenters: np.ndarray | float
@@ -918,7 +926,7 @@ class LF_Parameters:
             If not 0, normalization factor to the sigma UV of dust. Default is 0.0.
     """
 
-    zcenter: float = 6. 
+    zcenter: float = 6.
     zwidth:  float = 0.5
 
     MUVcenters: np.ndarray | float = _field(default_factory=lambda: np.linspace(-23,-14,100))
@@ -926,7 +934,7 @@ class LF_Parameters:
 
     FLAG_RENORMALIZE_LUV = False #whether to renormalize the lognormal LUV with sigmaUV to recover <LUV> or otherwise <MUV>. Recommend False.
 
-    sigmaUV: float = 0.5 
+    sigmaUV: float = 0.5
 
     log10LHacenters: np.ndarray | float = _field(default_factory=lambda: np.linspace(38,45,10))
     log10LHawidths: np.ndarray | float = 0.5
@@ -942,7 +950,7 @@ class LF_Parameters:
     C0dust: float = 4.43
     C1dust: float = 1.99 #4.43, 1.99 is Meurer99; 4.54, 2.07 is Overzier01
     _kappaUV: float = _field(init=False) # in SFR/LUV. Set by zeus21 to the value from Madau+Dickinson14, fully degenerate with epsilon
-    _kappaUV_III: float = _field(init=False) # in SFR/LUV for PopIII.  Set by zeus21 to the value from Madau+Dickinson14, fully degenerate with epsilon. Assume X more efficient than PopII.  
+    _kappaUV_III: float = _field(init=False) # in SFR/LUV for PopIII.  Set by zeus21 to the value from Madau+Dickinson14, fully degenerate with epsilon. Assume X more efficient than PopII.
 
     sigma_times_AUV_dust: float = 0.
 
