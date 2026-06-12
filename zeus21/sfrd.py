@@ -623,6 +623,7 @@ class SFRD_class:
                 dlog10eps_ACH = dlog10eps
                 zpiv_ACH = zpiv
                 Mc_ACH = Mc
+                alphastar_ACH = alphastar
                 betastar_ACH = betastar
             else:
                 eps_ACH = AstroParams.epssstar_III_ACH
@@ -776,12 +777,8 @@ class SFRD_class:
             Nlw = AstroParams.N_LW_II
 
         zIntMatrix = np.linspace(z, constants.redshiftFactor_Visbal*(1+z)-1, 20) # LW horizon from Visbal et al 2014
-                
-        if CosmoParams.Flag_emulate_21cmfast:
-            ##HAC ACAUSAL: This if statement allows for acausal Mmol
-            sfrdIterMatrix_LW = sfrdIter * np.ones_like(zIntMatrix) 
-        else:
-            sfrdIterMatrix_LW = interpolate.interp1d(z, sfrdIter, kind = 'linear', bounds_error=False, fill_value=0)(zIntMatrix)
+               
+        sfrdIterMatrix_LW = interpolate.interp1d(z, sfrdIter, kind = 'linear', bounds_error=False, fill_value=0)(zIntMatrix)
     
         integrandLW = constants.c_Mpcs / 4 / np.pi # for units to work, c must be in Mpc/s and proton mass in solar masses
         integrandLW *= (1+z)**2 / cosmology.Hubinvyr(CosmoParams,zIntMatrix)
@@ -801,7 +798,7 @@ class SFRD_class:
         ----------
         CosmoParams : CosmoParams class
         AstroParams : AstroParams class
-        z : float
+        z : float or array
             Redshift
         pop : int
             Which population (2 for popII or 3 for popIII)
@@ -821,9 +818,6 @@ class SFRD_class:
         rTable = np.transpose([CosmoParams.chiofzint(z)]) + rGreater # while we compute the intensity at z, the source of the LW field is at redshift z' corresponding to a shell located R away from the comoving redshft associated with the source
         rTable[rTable > CosmoParams.chiofzint(constants.zmax_AstroBreak)] = CosmoParams.chiofzint(constants.zmax_AstroBreak) #c ut down so that nothing exceeds zmax where we do not trust the astrophysical model 
         zTable = CosmoParams.zfofRint(rTable)
-        
-        if CosmoParams.Flag_emulate_21cmfast:
-            zTable = np.array([z]).T * np.ones_like(rTable) # TODO: This fixes J_LW(z) = int SFRD(z) dz' such that no z' dependence in the integral (for some reason 21cmFAST does this). Delete when comparing J_LW() with Visbal+14 and Mebane+17
             
         zMax = np.transpose([constants.redshiftFactor_Visbal*(1+z)-1])
         rMax = CosmoParams.chiofzint(zMax)
