@@ -139,7 +139,7 @@ def SED_LyA(nu_in, pop = 0): #default pop set to zero so python doesn't complain
 
 
 def Greens_function_LUV(AstroParams, ageMyrin, Mhalos):
-"""
+    """
     UV luminosity Green's function for a 1 M☉/yr instantaneous burst at some time t.
 
     Convolve with SFR(t) to get L_UV(t):
@@ -206,7 +206,7 @@ def Greens_function_LUV_Long(AstroParams,time, mass):
 
 
 def Greens_function_LHa(AstroParams, ageMyrin, Mhalos):
-"""
+    """
     Hα luminosity Green's function for a 1 M☉/yr instantaneous burst at some past time t.
 
     Analogous to Greens_function_LUV but for the Hα recombination line.

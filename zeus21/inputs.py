@@ -235,7 +235,7 @@ class Cosmo_Parameters:
     zmin_CLASS: float = 5.
 
     # Shells that we integrate over at each z.
-    Rs_min: float = 0.05 #HAC: CHANGE back to 0.05
+    Rs_min: float = 0.5 #TODO: Set to 0.5 if not doing reionization, 0.05 if doing reionization. Otherwise BMF doesn't converge
     Rs_max: float = 2000.
 
     # Flags
@@ -377,7 +377,7 @@ class Cosmo_Parameters:
             self.Rs_max = 500. #same as R_XLy_MAX in 21cmFAST. Too low?
             
         # radii
-        self.NRs = np.floor(45*UserParams.precisionboost).astype(int) #HAC: Change back from 90 to 45
+        self.NRs = np.floor(45*UserParams.precisionboost).astype(int)
         self._Rtabsmoo = np.logspace(np.log10(self.Rs_min), np.log10(self.Rs_max), self.NRs) # Smoothing Radii in Mpc com
         self._dlogRR = np.log(self.Rs_max/self.Rs_min)/(self.NRs-1.0)
 
