@@ -630,6 +630,10 @@ class Astro_Parameters:
         SEDMODEL: str = "BPASS"
             Which SED model to use for the Greens functions. Default is "BPASS".
             Can be set to "bagpipes", "BPASS_binaries", and "BPASS".
+        normLHa_ZIMF: float 
+            Floating normalization of the LHa luminosity compared to the baseline SEDMODEL to account for HMF or metallicity changes. Default is 1.0 
+        alphanormLHa_ZIMF: 
+            Power-law index of normLHa_ZIMF against halo mass. Default is 0.0
         sigmaPSD: float
             Amplitude of fluctuations in SFR arising from the power spectral density (PSD) model of SFR variability. Default is 0.5.
             This is the baseline scatter in ln(SFR) at a reference halo mass of 10^10 Msun.
@@ -760,6 +764,8 @@ class Astro_Parameters:
     FLAG_USE_PSD: bool = False
     FLAG_COMPARE_BAGPIPES: bool = False
     SEDMODEL: str = "BPASS"
+    normLHa_ZIMF: float = 1.0 
+    alphanormLHa_ZIMF: float = 0.0
     sigmaPSD: float = 0.5,
     dsigmaPSDdlog10Mh: float = 0.0,
     tauPSD: float = 10.0, 
