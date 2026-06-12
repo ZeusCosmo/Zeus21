@@ -1,19 +1,66 @@
+"""
+SEDs and Green's functions for first-galaxy emission models.
+
+Two families of functions:
+
+  X-ray / Lyman-alpha SEDs (used in 21cm calculations)
+  ---------------------------------------------------------
+  SED_XRAY      – power-law X-ray SED, normalized so ∫ E·SED(E) dE = 1
+                  over [E0_xray, Emax_xray]. Returns photon number spectrum. 
+                  E*SED is the power-law with index alpha_xray, so the output is divided by 1/E at the end to return number). 
+  SED_LyA       – Lyman-alpha continuum SED, normalized so ∫ SED(ν) dν = 1 (as opposed as E*SED, what was for Xrays).
+                  over [νLyA, νLyCont]. Returns number per unit frequency.
+
+  Green's functions (used in UVLFs, Hα/UV ratios, etc.)
+  ---------------------------------------------------------
+  Greens_function_LUV        – UV luminosity per unit SFR as a function of
+                               stellar population age. Integrate against SFR(t)
+                               to get instantaneous L_UV.
+  Greens_function_LUV_Short  – Same, windowed to ages < t_cut_LUV_short.
+  Greens_function_LUV_Long   – Same, windowed to ages > t_cut_LUV_short.
+  Greens_function_LHa        – Hα luminosity Green's function, analogous to LUV.
+
+Supported SED stellar-population models (AstroParams.SEDMODEL):
+  'bagpipes', 'BPASS', 'BPASS_binaries'
+
+Population flags (pop):
+  2 → Pop II stars
+  3 → Pop III stars
+"""
+
+
 import numpy as np 
 from . import constants
 
 
-'''
-        SED_XRAY
-            SED of our Xray sources. Takes energy En in eV.
-            Normalized to integrate to 1 from E0_xray to Emax_xray (int dE E * SED(E).
-            E*SED is the power-law with index alpha_xray, so the output is divided by 1/E at the end to return number). 
-        SED_LyA
-            SED of our Lyman-alpha-continuum sources.
-            Normalized to integrate to 1 (int d nu SED(nu), so SED is number per units energy (as opposed as E*SED, what was for Xrays).
-'''
+
 
 def SED_XRAY(AstroParams, En, pop = 0): #pop set to zero as default, but it must be set to either 2 or 3
-    "SED of our Xray sources, normalized to integrate to 1 from E0_xray to Emax_xray (int dE E * SED(E), and E*SED is the power-law with index alpha_xray, so the output is divided by 1/E at the end to return number). Takes energy En in eV"
+    """
+    X-ray SED for Pop II or Pop III sources.
+
+    Normalized so that ∫_{E0}^{Emax} E · SED(E) dE = 1, i.e. E·SED is a
+    power law with index alpha_xray. The function returns the *photon number*
+    spectrum (divided by E at the end).
+
+    The high-energy cutoff is intentionally omitted because photons redshift
+    down into the <2 keV observing band.
+
+    Parameters
+    ----------
+    AstroParams : object
+        Must expose: alpha_xray, alpha_xray_III, E0_xray, Emax_xray_norm.
+    En : float or array-like
+        Photon energy in eV.
+    pop : {2, 3}
+        Stellar population. 2 = Pop II, 3 = Pop III.
+
+    Returns
+    -------
+    ndarray
+        SED in units of eV⁻¹, same shape as En.
+        Zero below E0_xray.
+    """
     if pop == 2:
         alphaX = AstroParams.alpha_xray
     elif pop == 3:
@@ -30,8 +77,31 @@ def SED_XRAY(AstroParams, En, pop = 0): #pop set to zero as default, but it must
     #do not cut at higher energies since they redshift into <2 keV band
 
 
+
 def SED_LyA(nu_in, pop = 0): #default pop set to zero so python doesn't complain, but must be 2 or 3 for this to work
-    "SED of our Lyman-alpha-continuum sources, normalized to integrate to 1 (int d nu SED(nu), so SED is number per units energy (as opposed as E*SED, what was for Xrays) "
+    """
+    Lyman-alpha continuum SED for Pop II or Pop III sources.
+
+    A two-segment power law in frequency, joined at ν_LyB:
+      • νLyA  ≤ ν < νLyB  : index indexbelow  (flatter)
+      • νLyB  ≤ ν < νLyCont: index indexabove  (steeper)
+
+    Normalized so that ∫_{νLyA}^{νLyCont} SED(ν) dν = 1 (photon number
+    per unit frequency). Contrast with SED_XRAY, which normalizes E·SED.
+
+    Parameters
+    ----------
+    nu_in : float or array-like
+        Frequency in the same units as constants.freqLyA / freqLyCont.
+    pop : {2, 3}
+        Stellar population. Uses BL05 stellar spectra as reference.
+        Pop II: amps = [0.68, 0.32], Pop III: amps = [0.56, 0.44].
+
+    Returns
+    -------
+    ndarray
+        SED value(s), same shape as nu_in. Zero outside [νLyA, νLyCont).
+    """
 
     nucut = constants.freqLyB #above and below this freq different power laws
     if pop == 2:
@@ -68,11 +138,34 @@ def SED_LyA(nu_in, pop = 0): #default pop set to zero so python doesn't complain
 
 
 
-'''
-UV and Halpha Green Functions
-'''
 def Greens_function_LUV(AstroParams, ageMyrin, Mhalos):
-    "Age in Myr, green's function in erg/s/Msun (so LUV = \int dAge Greens_function_LUV(Age) * SFR(Age))"
+"""
+    UV luminosity Green's function for a 1 M☉/yr instantaneous burst at some time t.
+
+    Convolve with SFR(t) to get L_UV(t):
+        L_UV(t) = ∫ G_UV(t - t') · SFR(t') dt'
+
+    The shape is a double-power-law in age (fast rise, slow decline) with a
+    Gaussian bump at very young ages (~2–4 Myr) capturing the brief Wolf-Rayet
+    and OB-supergiant phase. A Gaussian exponential cutoff suppresses
+    contributions beyond ~650–1100 Myr depending on the SED model.
+
+    Parameters
+    ----------
+    AstroParams : object
+        Must choose SEDMODEL ∈ {'bagpipes', 'BPASS', 'BPASS_binaries'}.
+    ageMyrin : float or array-like, shape (Nt,)
+        Stellar population age in Myr. A small offset (1e-4 Myr) is added
+        internally to avoid division by zero at age = 0.
+    Mhalos : array-like, shape (NMh,)
+        Halo masses in M☉. Currently enter only through IMFZcorrection,
+        which is unity for UV (correction absorbed into ε*).
+
+    Returns
+    -------
+    ndarray, shape (NMh, Nt)
+        Green's function in erg s⁻¹ M☉⁻¹.
+    """
 
     if AstroParams.SEDMODEL == 'bagpipes':
         _amp = 3.1e36
@@ -113,7 +206,32 @@ def Greens_function_LUV_Long(AstroParams,time, mass):
 
 
 def Greens_function_LHa(AstroParams, ageMyrin, Mhalos):
-    "Age in Myr, green's function in erg/s/Msun (so LHa = \int dAge Greens_function_LHa(Age) * SFR(Age))"
+"""
+    Hα luminosity Green's function for a 1 M☉/yr instantaneous burst at some past time t.
+
+    Analogous to Greens_function_LUV but for the Hα recombination line.
+    Hα traces ionizing photons and therefore falls off much faster with age
+    (~few Myr vs. ~Gyr for UV). For BPASS_binaries there is a second component at ~20 Myr to account
+    for delayed ionizing flux.
+
+    The IMF/metallicity correction scales with halo mass as a power law,
+    clamped to [0.1, 10] to prevent runaway corrections.
+
+
+    Parameters
+    ----------
+    AstroParams : object
+        Must expose: SEDMODEL, normLHa_ZIMF, alphanormLHa_ZIMF.
+    ageMyrin : float or array-like, shape (Nt,)
+        Stellar population age in Myr.
+    Mhalos : array-like, shape (NMh,)
+        Halo masses in M☉. Used in the IMF/Z mass-dependent correction.
+
+    Returns
+    -------
+    ndarray, shape (NMh, Nt)
+        Green's function in erg s⁻¹ M☉⁻¹.
+    """
     if AstroParams.SEDMODEL == 'bagpipes':
         _amp = 1.2e35
         _exp = 2.0
@@ -132,7 +250,7 @@ def Greens_function_LHa(AstroParams, ageMyrin, Mhalos):
     else:
         raise ValueError("SEDMODEL must be 'bagpipes', 'BPASS' or 'BPASS_binaries'")
     ageMyr = ageMyrin+1e-4 #to avoid complaints about division by zero
-    IMFZcorrection =  self.normLHa_ZIMF * (Mhalos/1e10)**self.alphanormLHa_ZIMF
+    IMFZcorrection =  AstroParams.normLHa_ZIMF * (Mhalos/1e10)**AstroParams.alphanormLHa_ZIMF
     IMFZcorrection = np.fmin(np.fmax(IMFZcorrection, 0.1),10.) #make sure it's not too low or high
     massindepresult = _amp * np.exp(-(ageMyr/_agepivot)**_exp)*(ageMyr/_agepivot)**_alpha #erg/s/Msun
     if AstroParams.SEDMODEL == 'BPASS_binaries':
