@@ -61,7 +61,7 @@ class User_Parameters:
         Small (<3%) correction in dd, but non trivial (~10%) in d-xa and d-Tx
     FLAG_WF_ITERATIVE: bool
         Whether to iteratively do the WF correction as in Hirata2006. Default is True.
-    zmin_T21: float
+    zmin: float
         Minimum redshift to which we compute the T21 signals. Default is 5.0.
     DO_ONLY_GLOBAL: bool
         Whether zeus21 only runs the global T21 signal (and not fluctuations). Default is False.
@@ -82,7 +82,7 @@ class User_Parameters:
     MAX_R_NONLINEAR: float = 100.0
     FLAG_DO_DENS_NL: bool = False
     FLAG_WF_ITERATIVE: bool = True
-    zmin_T21: float = 5.
+    zmin: float = 5.
     DO_ONLY_GLOBAL: bool = False
     USE_BARYON_FLAG: bool = True
 
