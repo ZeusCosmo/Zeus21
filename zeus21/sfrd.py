@@ -106,9 +106,9 @@ class SFRD_class:
         Average SFRD for popII computed at z corresponding to each shell.
     SFRDbar2D_III : matrix
         Average SFRD for popIII computed at z corresponding to each shell
-<    fesctab_II : array
+    fesctab_II : array
         Escape fraction for popII, z-independent, as function of the halo mass
-     fesctab_III : array
+    fesctab_III : array
         Escape fraction for popIII, z-independent, as function of the halo mass
     reio_integrand_II_interp : integrand
         Number of ionizing photons produced by popII, interpolated in redshift
