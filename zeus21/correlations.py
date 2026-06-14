@@ -52,8 +52,6 @@ class Power_Spectra:
     ----------
     Basic Setup Attributes
     
-    self._rs_input_mcfit: array
-        Input array of rs from mcfit P2xi used in inputs.py
     self.klist_PS: array
         Input array of wavenumbers used in inputs.py
     self.kwindow: array
@@ -305,9 +303,9 @@ class Power_Spectra:
         self.Deltasq_xa_lin_IIxIII = self._Pk_xa_lin_IIxIII * self._k3over2pi2 #note that it still has units of xa_avg
 
         #nonlinear corrections too:
-        self._d_Pk_xa_nl_II = self.get_list_PS(self._II_deltaxi_xa, T21coeffs.zintegral)
-        self._d_Pk_xa_nl_III = self.get_list_PS(self._III_deltaxi_xa, T21coeffs.zintegral) #velocity correlations already embedded in nonlinear computation
-        self._d_Pk_xa_nl_IIxIII = self.get_list_PS(self._IIxIII_deltaxi_xa, T21coeffs.zintegral)
+        self._d_Pk_xa_nl_II = z21_utilities.get_list_PS(CosmoParams, self._II_deltaxi_xa, T21coeffs.zintegral)
+        self._d_Pk_xa_nl_III = z21_utilities.get_list_PS(CosmoParams, self._III_deltaxi_xa, T21coeffs.zintegral) #velocity correlations already embedded in nonlinear computation
+        self._d_Pk_xa_nl_IIxIII = z21_utilities.get_list_PS(CosmoParams, self._IIxIII_deltaxi_xa, T21coeffs.zintegral)
 
         self.Deltasq_xa_II = self.Deltasq_xa_lin_II + self._d_Pk_xa_nl_II * self._k3over2pi2 #note that it still has units of xa_avg
         self.Deltasq_xa_III = self.Deltasq_xa_lin_III + self._d_Pk_xa_nl_III * self._k3over2pi2 #note that it still has units of xa_avg
@@ -326,9 +324,9 @@ class Power_Spectra:
         self.Deltasq_Tx_lin_III = self._Pk_Tx_lin_III * self._k3over2pi2
         self.Deltasq_Tx_lin_IIxIII = self._Pk_Tx_lin_IIxIII * self._k3over2pi2
 
-        self._d_Pk_Tx_nl_II = self.get_list_PS(self._II_deltaxi_Tx, T21coeffs.zintegral)
-        self._d_Pk_Tx_nl_III = self.get_list_PS(self._III_deltaxi_Tx, T21coeffs.zintegral)
-        self._d_Pk_Tx_nl_IIxIII = self.get_list_PS(self._IIxIII_deltaxi_Tx, T21coeffs.zintegral)
+        self._d_Pk_Tx_nl_II = z21_utilities.get_list_PS(CosmoParams, self._II_deltaxi_Tx, T21coeffs.zintegral)
+        self._d_Pk_Tx_nl_III = z21_utilities.get_list_PS(CosmoParams, self._III_deltaxi_Tx, T21coeffs.zintegral)
+        self._d_Pk_Tx_nl_IIxIII = z21_utilities.get_list_PS(CosmoParams, self._IIxIII_deltaxi_Tx, T21coeffs.zintegral)
 
         self.Deltasq_Tx_II = self.Deltasq_Tx_lin_II + self._d_Pk_Tx_nl_II * self._k3over2pi2
         self.Deltasq_Tx_III = self.Deltasq_Tx_lin_III + self._d_Pk_Tx_nl_III * self._k3over2pi2
@@ -347,9 +345,9 @@ class Power_Spectra:
         self.Deltasq_xaTx_lin_III = self._Pk_xaTx_lin_III * self._k3over2pi2
         self.Deltasq_xaTx_lin_IIxIII = self._Pk_xaTx_lin_IIxIII * self._k3over2pi2
 
-        self._d_Pk_xaTx_nl_II = self.get_list_PS(self._II_deltaxi_xaTx, T21coeffs.zintegral)
-        self._d_Pk_xaTx_nl_III = self.get_list_PS(self._III_deltaxi_xaTx, T21coeffs.zintegral)
-        self._d_Pk_xaTx_nl_IIxIII = self.get_list_PS(self._IIxIII_deltaxi_xaTx, T21coeffs.zintegral)
+        self._d_Pk_xaTx_nl_II = z21_utilities.get_list_PS(CosmoParams, self._II_deltaxi_xaTx, T21coeffs.zintegral)
+        self._d_Pk_xaTx_nl_III = z21_utilities.get_list_PS(CosmoParams, self._III_deltaxi_xaTx, T21coeffs.zintegral)
+        self._d_Pk_xaTx_nl_IIxIII = z21_utilities.get_list_PS(CosmoParams, self._IIxIII_deltaxi_xaTx, T21coeffs.zintegral)
 
         self.Deltasq_xaTx_II = self.Deltasq_xaTx_lin_II + self._d_Pk_xaTx_nl_II * self._k3over2pi2 #note that it still has units of xa_avg
         self.Deltasq_xaTx_III = self.Deltasq_xaTx_lin_III + self._d_Pk_xaTx_nl_III * self._k3over2pi2 #note that it still has units of xa_avg
@@ -396,16 +394,16 @@ class Power_Spectra:
 
         if(UserParams.FLAG_DO_DENS_NL): #note that the nonlinear terms (cross and auto) below here have the growth already accounted for
 
-            self._d_Pk_d_nl = self.get_list_PS(self._II_deltaxi_d, T21coeffs.zintegral)
+            self._d_Pk_d_nl = z21_utilities.get_list_PS(CosmoParams, self._II_deltaxi_d, T21coeffs.zintegral)
             self._Pk_d += self._d_Pk_d_nl
 
-            self._d_Pk_dxa_nl_II = self.get_list_PS(self._II_deltaxi_dxa, T21coeffs.zintegral)
-            self._d_Pk_dxa_nl_III = self.get_list_PS(self._III_deltaxi_dxa, T21coeffs.zintegral)
+            self._d_Pk_dxa_nl_II = z21_utilities.get_list_PS(CosmoParams, self._II_deltaxi_dxa, T21coeffs.zintegral)
+            self._d_Pk_dxa_nl_III = z21_utilities.get_list_PS(CosmoParams, self._III_deltaxi_dxa, T21coeffs.zintegral)
             self._Pk_dxa_II += self._d_Pk_dxa_nl_II
             self._Pk_dxa_III += self._d_Pk_dxa_nl_III
 
-            self._d_Pk_dTx_nl_II = self.get_list_PS(self._II_deltaxi_dTx, T21coeffs.zintegral)
-            self._d_Pk_dTx_nl_III = self.get_list_PS(self._III_deltaxi_dTx, T21coeffs.zintegral)
+            self._d_Pk_dTx_nl_II = z21_utilities.get_list_PS(CosmoParams, self._II_deltaxi_dTx, T21coeffs.zintegral)
+            self._d_Pk_dTx_nl_III = z21_utilities.get_list_PS(CosmoParams, self._III_deltaxi_dTx, T21coeffs.zintegral)
 
             self._Pk_dTx_II += self._d_Pk_dTx_nl_II
             self._Pk_dTx_III += self._d_Pk_dTx_nl_III
@@ -428,28 +426,28 @@ class Power_Spectra:
             self._Pk_xion_lin = self.windowxion**2 * CosmoParams._PklinCF
             self.Deltasq_xion_lin = self._Pk_xion_lin * self._k3over2pi2
 
-            self._d_Pk_xion_nl = self.get_list_PS(self._deltaxi_xi, T21coeffs.zintegral)
+            self._d_Pk_xion_nl = z21_utilities.get_list_PS(CosmoParams, self._deltaxi_xi, T21coeffs.zintegral)
             self.Deltasq_xion = self.Deltasq_xion_lin + self._d_Pk_xion_nl * self._k3over2pi2
 
             #cross with density
             self._Pk_dxion_lin = (self.windowxion.T * self._lingrowthd).T  * CosmoParams._PklinCF
             self.Deltasq_dxion_lin = self._Pk_dxion_lin * self._k3over2pi2
 
-            self._d_Pk_dxion_nl = self.get_list_PS(self._deltaxi_dxi, T21coeffs.zintegral)
+            self._d_Pk_dxion_nl = z21_utilities.get_list_PS(CosmoParams, self._deltaxi_dxi, T21coeffs.zintegral)
             self.Deltasq_dxion = self.Deltasq_dxion_lin + self._d_Pk_dxion_nl * self._k3over2pi2
 
             #cross with xa
             self._Pk_xaxion_lin = self.windowxion * self.windowalpha  * CosmoParams._PklinCF
             self.Deltasq_xaxion_lin = self._Pk_xaxion_lin * self._k3over2pi2
 
-            self._d_Pk_xaxion_nl = self.get_list_PS(self._deltaxi_xaxi, T21coeffs.zintegral)
+            self._d_Pk_xaxion_nl = z21_utilities.get_list_PS(CosmoParams, self._deltaxi_xaxi, T21coeffs.zintegral)
             self.Deltasq_xaxion = self.Deltasq_xaxion_lin + self._d_Pk_xaxion_nl * self._k3over2pi2
 
             #and cross with Tx
             self._Pk_Txxion_lin = self.windowxion * self.windowxray  * CosmoParams._PklinCF
             self.Deltasq_Txxion_lin = self._Pk_Txxion_lin * self._k3over2pi2
 
-            self._d_Pk_Txxion_nl = self.get_list_PS(self._deltaxi_Txxi, T21coeffs.zintegral)
+            self._d_Pk_Txxion_nl = z21_utilities.get_list_PS(CosmoParams, self._deltaxi_Txxi, T21coeffs.zintegral)
             self.Deltasq_Txxion = self.Deltasq_Txxion_lin + self._d_Pk_Txxion_nl * self._k3over2pi2
         else:
             self.Deltasq_xion =  np.zeros_like(self.Deltasq_d)
@@ -629,7 +627,7 @@ class Power_Spectra:
 
         if(CosmoParams.Flag_emulate_21cmfast==False): #do the standard 1D TopHat
             _wincoeffsMatrix /=(4*np.pi * CosmoParams._Rtabsmoo**2) * (CosmoParams._Rtabsmoo * CosmoParams._dlogRR) # so we can just use mcfit for logFFT, 1/(4pir^2 * Delta r)
-            _kwinalpha, _win_alpha = self.get_Pk_from_xi(CosmoParams._Rtabsmoo, _wincoeffsMatrix)
+            _kwinalpha, _win_alpha = z21_utilities.get_Pk_from_xi(CosmoParams._Rtabsmoo, _wincoeffsMatrix)
 
         else:
             _kwinalpha = self.klist_PS
@@ -690,7 +688,7 @@ class Power_Spectra:
         if(CosmoParams.Flag_emulate_21cmfast==False): #do the standard 1D TopHat
             _wincoeffs = coeffRmatrix * gammaRmatrix #array in logR space
             _wincoeffs /=(4*np.pi * CosmoParams._Rtabsmoo**2) * (CosmoParams._Rtabsmoo * CosmoParams._dlogRR) # so we can just use mcfit for logFFT, 1/(4pir^2) * Delta r
-            _kwinTx, _win_Tx_curr = self.get_Pk_from_xi(CosmoParams._Rtabsmoo, _wincoeffs)
+            _kwinTx, _win_Tx_curr = z21_utilities.get_Pk_from_xi(CosmoParams._Rtabsmoo, _wincoeffs)
 
         else:
             _kwinTx = self.klist_PS
@@ -1237,56 +1235,3 @@ class Power_Spectra:
 
         return 1
         
-        
-    def get_list_PS(self, xi_list, zlisttoconvert):
-        """
-        Returns the power spectrum given a list of CFs (xi_list) evaluated at z=zlisttoconvert as input
-
-        Parameters
-        ----------
-        xi_list : matrix
-            list of correlation functions
-        zlisttoconvert: array
-            which redshifts xi_list is evaluated at
-
-        Returns
-        ----------
-        _Pk_list: matrix
-            Matrix of power spectra. Dimension (z, K)
-
-        """
-        _Pk_list = []
-
-        for izp,zp in enumerate(zlisttoconvert):
-
-            _kzp, _Pkzp = self.get_Pk_from_xi(self._rs_input_mcfit,xi_list[izp])
-            _Pk_list.append(_Pkzp)
-            #can ignore _kzp, it's the same as klist_PS above by construction
-
-
-        return np.array(_Pk_list)
-
-
-    def get_Pk_from_xi(self, rsinput, xiinput):
-        """
-        Generic Fourier Transform, returns Pk from an input Corr Func xi. kPf should be the same as _klistCF
-
-        Parameters
-        ----------
-        rsinput : array
-            Array of Rs used to evaluate xiinput
-        xiinput: matrix
-            Matrix of values you are Fourier Transforming. Dimension (z, R)
-
-        Returns
-        ----------
-        kPf: list
-            List of wavenumbers
-        Pf: matrix
-            Resultant Fourier Transform of xiinput. Dimension (z, k)
-
-        """
-        
-        kPf, Pf = mcfit.xi2P(rsinput, l=0, lowring=True)(xiinput, extrap=False)
-
-        return kPf, Pf

@@ -14,6 +14,7 @@ import gc
 
 from . import constants
 from scipy.stats import lognorm
+import mcfit
 
 
 try:
@@ -232,3 +233,54 @@ def mean_log10(sigmaquantity, meanquantity):
     "Returns the mean(log10) for a given quantity with mean and sigma in linear units"
     return np.log10(meanquantity)- 1/2 * np.log10(1 + sigmaquantity**2/meanquantity**2)
 
+
+def get_Pk_from_xi(rsinput, xiinput):
+    """
+    Generic Fourier Transform, returns Pk from an input Corr Func xi. kPf should be the same as _klistCF
+
+    Parameters
+    ----------
+    rsinput : array
+        Array of Rs used to evaluate xiinput
+    xiinput: matrix
+        Matrix of values you are Fourier Transforming. Dimension (z, R)
+
+    Returns
+    ----------
+    kPf: list
+        List of wavenumbers
+    Pf: matrix
+        Resultant Fourier Transform of xiinput. Dimension (z, k)
+
+    """
+    
+    kPf, Pf = mcfit.xi2P(rsinput, l=0, lowring=True)(xiinput, extrap=False)
+
+    return kPf, Pf
+
+
+def get_list_PS(CosmoParams, xi_list, zlisttoconvert):
+    """
+    Returns the power spectrum given a list of CFs (xi_list) evaluated at z=zlisttoconvert as input
+
+    Parameters
+    ----------
+    xi_list : matrix
+        list of correlation functions
+    zlisttoconvert: array
+        which redshifts xi_list is evaluated at
+
+    Returns
+    ----------
+    _Pk_list: matrix
+        Matrix of power spectra. Dimension (z, K)
+
+    """
+    _Pk_list = []
+
+    for izp,zp in enumerate(zlisttoconvert):
+
+        _kzp, _Pkzp = get_Pk_from_xi(CosmoParams.rlist_CF,xi_list[izp])
+        _Pk_list.append(_Pkzp)
+
+    return np.array(_Pk_list)
