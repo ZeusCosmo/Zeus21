@@ -551,9 +551,9 @@ class Astro_Parameters:
         alphastar: float
             Power law index of the star formation efficiency at low masses. Default 0.5.
         betastar: float
-            Power law index of the star formation efficiency at high masses. Only used when astromodel=0. Default -0.5.
+            Power law index of the star formation efficiency at high masses. Not used if Flag_emulate_21cmfast = True. Default -0.5.
         Mc: float
-            Mass at which the star formation efficiency cuts. Only used when astromodel=0. Default 3e11.
+            Mass at which the star formation efficiency cuts. Not used if Flag_emulate_21cmfast=True. Default 3e11.
         epsstar_III: float
             Amplitude of the star formation efficiency (at M_pivot) for Pop III. Default is 10**(-2.5).
         dlog10epsstardz_III: float
