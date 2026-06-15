@@ -534,7 +534,7 @@ class Astro_Parameters:
 
     Parameters
     ----------
-        Cosmo_Parameters: Cosmo_Parameters
+        CosmoParams: Cosmo_Parameters
             zeus21 class for the cosmological parameters. Needs to be inputed.
         accretion_model: str
             Accretion model. "exp" for exponential, "EPS" for EPS. "RP16" for the dynamically averaged fitting function in Rodríguez-Puebla+16. Default is "exp".
