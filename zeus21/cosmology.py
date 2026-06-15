@@ -67,13 +67,13 @@ def redshift_at_time(ClassyCosmo,t):
     return classy_tinterp(t)
 
 
-def Hub(Cosmo_Parameters, z):
+def Hub(CosmoParams, z):
     """
     Hubble parameter H(z).
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters.
     z : float
         Redshift.
@@ -84,16 +84,16 @@ def Hub(Cosmo_Parameters, z):
         Hubble parameter H(z) in km/s/Mpc.
     """
 
-    return Cosmo_Parameters.h_fid * 100 * np.sqrt(Cosmo_Parameters.OmegaM * pow(1+z,3.)+Cosmo_Parameters.OmegaR * pow(1+z,4.)+Cosmo_Parameters.OmegaL)
+    return CosmoParams.h_fid * 100 * np.sqrt(CosmoParams.OmegaM * pow(1+z,3.)+CosmoParams.OmegaR * pow(1+z,4.)+CosmoParams.OmegaL)
 
 
-def HubinvMpc(Cosmo_Parameters, z):
+def HubinvMpc(CosmoParams, z):
     """
     Converts Hubble parameter H(z) in inverse length units (1/Mpc).
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters.
     z : float
         Redshift.
@@ -104,16 +104,16 @@ def HubinvMpc(Cosmo_Parameters, z):
         Hubble parameter H(z) in 1/Mpc.
     """
 
-    return Hub(Cosmo_Parameters,z)/constants.c_kms
+    return Hub(CosmoParams,z)/constants.c_kms
 
 
-def Hubinvyr(Cosmo_Parameters, z):
+def Hubinvyr(CosmoParams, z):
     """
     Converts Hubble parameter H(z) in inverse time units (1/yr).
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters.
     z : float
         Redshift.
@@ -124,16 +124,16 @@ def Hubinvyr(Cosmo_Parameters, z):
         Hubble parameter H(z) in 1/yr.
     """
 
-    return Hub(Cosmo_Parameters,z)*constants.KmToMpc*constants.yrTos
+    return Hub(CosmoParams,z)*constants.KmToMpc*constants.yrTos
 
 
-def rho_baryon(Cosmo_Parameters, z):
+def rho_baryon(CosmoParams, z):
     """
     Baryon density rho_baryon(z).
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters.
     z : float
         Redshift.
@@ -144,16 +144,16 @@ def rho_baryon(Cosmo_Parameters, z):
         Baryon density rho_baryon(z) in Msun/Mpc^3.
     """
 
-    return Cosmo_Parameters.OmegaB * Cosmo_Parameters.rhocrit * pow(1+z,3.0)
+    return CosmoParams.OmegaB * CosmoParams.rhocrit * pow(1+z,3.0)
     
 
-def n_H(Cosmo_Parameters, z):
+def n_H(CosmoParams, z):
     """
     Number density of hydrogen nuclei (including both neutral or ionized).
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters.
     z : float
         Redshift.
@@ -164,7 +164,7 @@ def n_H(Cosmo_Parameters, z):
         Number density of hydrogen nuclei in 1/cm^3.
     """
 
-    return rho_baryon(Cosmo_Parameters, z) *( 1- Cosmo_Parameters.Y_He)/(constants.mH_GeV/constants.MsuntoGeV) / (constants.Mpctocm**3.0) 
+    return rho_baryon(CosmoParams, z) *( 1- CosmoParams.Y_He)/(constants.mH_GeV/constants.MsuntoGeV) / (constants.Mpctocm**3.0) 
 
 
 def Tcmb(ClassCosmo, z):
@@ -195,7 +195,7 @@ def Tadiabatic(CosmoParams, z):
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters.
     z : float
         Redshift.
@@ -216,7 +216,7 @@ def xefid(CosmoParams, z):
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters.
     z : float
         Redshift.
@@ -251,13 +251,13 @@ def adiabatic_index(z):
     return 0.58 - 0.005*(z-10.)
 
 
-def MhofRad(Cosmo_Parameters, R):
+def MhofRad(CosmoParams, R):
     """
     Convert input comoving Radius to virial Mass.
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters.
     R : float
         Comoving radius in cMpc.
@@ -268,16 +268,16 @@ def MhofRad(Cosmo_Parameters, R):
         Mass in Msun.
     """
     
-    return Cosmo_Parameters.constRM *pow(R, 3.0)
+    return CosmoParams.constRM *pow(R, 3.0)
 
 
-def RadofMh(Cosmo_Parameters, M):
+def RadofMh(CosmoParams, M):
     """
     Convert input virial Mass to comoving Radius.
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters.
     M : float
         Virial mass in Msun.
@@ -288,16 +288,16 @@ def RadofMh(Cosmo_Parameters, M):
         Comoving radius in cMpc.
     """
     
-    return pow(M/Cosmo_Parameters.constRM, 1/3.0)
+    return pow(M/CosmoParams.constRM, 1/3.0)
 
 
-def ST_HMF(Cosmo_Parameters, Mass, sigmaM, dsigmadM):
+def ST_HMF(CosmoParams, Mass, sigmaM, dsigmadM):
     """
     Sheth-Tormen Halo Mass Function.
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters.
     Mass : float
         Halo mass in Msun.
@@ -312,17 +312,17 @@ def ST_HMF(Cosmo_Parameters, Mass, sigmaM, dsigmadM):
         HMF value in 1/Mpc^3/Msun.
     """
     
-    A_ST = Cosmo_Parameters.Amp_ST
-    a_ST = Cosmo_Parameters.a_ST
-    p_ST = Cosmo_Parameters.p_ST
-    delta_crit_ST = Cosmo_Parameters.delta_crit_ST
+    A_ST = CosmoParams.Amp_ST
+    a_ST = CosmoParams.a_ST
+    p_ST = CosmoParams.p_ST
+    delta_crit_ST = CosmoParams.delta_crit_ST
 
     nutilde = np.sqrt(a_ST) * delta_crit_ST/sigmaM
 
-    return -A_ST * np.sqrt(2./np.pi) * nutilde * (1. + nutilde**(-2.0*p_ST)) * np.exp(-nutilde**2/2.0) * (Cosmo_Parameters.rho_M0 / (Mass * sigmaM)) * dsigmadM
+    return -A_ST * np.sqrt(2./np.pi) * nutilde * (1. + nutilde**(-2.0*p_ST)) * np.exp(-nutilde**2/2.0) * (CosmoParams.rho_M0 / (Mass * sigmaM)) * dsigmadM
 
 
-def Tink_HMF(Cosmo_Parameters, Mass, sigmaM, dsigmadM, z):
+def Tink_HMF(CosmoParams, Mass, sigmaM, dsigmadM, z):
     """
     Tinker 2008 Halo Mass Function.
     All in physical (no h) units. 
@@ -330,7 +330,7 @@ def Tink_HMF(Cosmo_Parameters, Mass, sigmaM, dsigmadM, z):
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters.
     Mass : float
         Halo mass in Msun.
@@ -349,7 +349,7 @@ def Tink_HMF(Cosmo_Parameters, Mass, sigmaM, dsigmadM, z):
     
     f = f_GUREFT_physical(sigmaM, z)
 
-    return f*(Cosmo_Parameters.rho_M0 / (Mass)) * np.abs(dsigmadM/sigmaM)
+    return f*(CosmoParams.rho_M0 / (Mass)) * np.abs(dsigmadM/sigmaM)
 
 
 def f_GUREFT_physical(sigmaM, z):
@@ -386,14 +386,14 @@ def f_GUREFT_physical(sigmaM, z):
     return A(zuse) * (((sigmaM/b(zuse))**(-a(zuse))) + 1.0 ) * np.exp(-c(zuse)/(sigmaM**2))
 
 
-def PS_HMF_unnorm(Cosmo_Parameters, Mass, nu, dlogSdM):
+def PS_HMF_unnorm(CosmoParams, Mass, nu, dlogSdM):
     """
     Unnormalized Press-Schechter HMF.
     Used to emulate 21cmFAST. 
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters.
     Mass : float
         Halo mass in Msun.
@@ -408,7 +408,7 @@ def PS_HMF_unnorm(Cosmo_Parameters, Mass, nu, dlogSdM):
         HMF value in 1/Mpc^3/Msun.
     """
         
-    return nu * np.exp(-Cosmo_Parameters.a_corr_EPS*nu**2/2.0) * dlogSdM* (1.0 / Mass)
+    return nu * np.exp(-CosmoParams.a_corr_EPS*nu**2/2.0) * dlogSdM* (1.0 / Mass)
 
 
 class HMF_interpolator:
@@ -418,9 +418,9 @@ class HMF_interpolator:
     Parameters
     ----------
 
-    User_Parameters : User_Parameters
+    UserParams : UserParams
         User parameters, used to set the resolution of the HMF table.
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters, used to compute the HMF table with CLASS.
     
     Attributes
@@ -435,34 +435,34 @@ class HMF_interpolator:
         Interpolator for dsigma/dM value, takes (Mass, z) as arguments
     """
 
-    def __init__(self, User_Parameters, Cosmo_Parameters):
+    def __init__(self, UserParams, CosmoParams):
 
         self._Mhmin = 1e5 # minimum halo mass in Msun
         self._Mhmax = 1e14 # maximum halo mass in Msun
-        self._NMhs = np.floor(35*User_Parameters.precisionboost).astype(int) # number of halo mass points in the table, set by precisionboost
+        self._NMhs = np.floor(35*UserParams.precisionboost).astype(int) # number of halo mass points in the table, set by precisionboost
         self.Mhtab = np.logspace(np.log10(self._Mhmin),np.log10(self._Mhmax),self._NMhs) # halo mass table in Msun
         self.logtabMh = np.log(self.Mhtab) # log of halo mass table, used for interpolation since the HMF varies more smoothly in log(M)
         
-        self.RMhtab = RadofMh(Cosmo_Parameters, self.Mhtab) # comoving radius corresponding to the halo mass table, in cMpc
+        self.RMhtab = RadofMh(CosmoParams, self.Mhtab) # comoving radius corresponding to the halo mass table, in cMpc
 
 
-        self._zmin=Cosmo_Parameters.zmin_CLASS # minimum redshift for the HMF table, set by CLASS
-        self._zmax = Cosmo_Parameters.zmax_CLASS # maximum redshift for the HMF table, set by CLASS
-        self._Nzs=np.floor(100*User_Parameters.precisionboost).astype(int) # number of redshift points in the table, set by precisionboost. Note that the HMF is very steep at high z, so we need more points than for other tables to get good interpolation.
+        self._zmin=CosmoParams.zmin_CLASS # minimum redshift for the HMF table, set by CLASS
+        self._zmax = CosmoParams.zmax_CLASS # maximum redshift for the HMF table, set by CLASS
+        self._Nzs=np.floor(100*UserParams.precisionboost).astype(int) # number of redshift points in the table, set by precisionboost. Note that the HMF is very steep at high z, so we need more points than for other tables to get good interpolation.
         self.zHMFtab = np.linspace(self._zmin,self._zmax,self._Nzs) # redshift table for the HMF
 
         # check resolution: make sure that the kmax_CLASS is high enough to resolve the small scales corresponding to the smallest halos. If not, warn the user
-        if (Cosmo_Parameters.kmax_CLASS < 1.0/self.RMhtab[0]):
+        if (CosmoParams.kmax_CLASS < 1.0/self.RMhtab[0]):
             print('Warning! kmax_CLASS may be too small! Run CLASS with higher kmax')
 
         # sigma(M,z) table, computed from CLASS
-        self.sigmaMhtab = np.array([[Cosmo_Parameters.ClassCosmo.sigma(RR,zz) for zz in self.zHMFtab] for RR in self.RMhtab]) 
+        self.sigmaMhtab = np.array([[CosmoParams.ClassCosmo.sigma(RR,zz) for zz in self.zHMFtab] for RR in self.RMhtab]) 
 
         # derivative of sigma with respect to M
         self._depsM = 0.01 # step 
-        self.dsigmadMMhtab = np.array([[(Cosmo_Parameters.ClassCosmo.sigma(RadofMh(Cosmo_Parameters, MM*(1+self._depsM)),zz)-Cosmo_Parameters.ClassCosmo.sigma(RadofMh(Cosmo_Parameters, MM*(1-self._depsM)),zz))/(MM*2.0*self._depsM) for zz in self.zHMFtab] for MM in self.Mhtab])
+        self.dsigmadMMhtab = np.array([[(CosmoParams.ClassCosmo.sigma(RadofMh(CosmoParams, MM*(1+self._depsM)),zz)-CosmoParams.ClassCosmo.sigma(RadofMh(CosmoParams, MM*(1-self._depsM)),zz))/(MM*2.0*self._depsM) for zz in self.zHMFtab] for MM in self.Mhtab])
 
-        if(Cosmo_Parameters.Flag_emulate_21cmfast==True):
+        if(CosmoParams.Flag_emulate_21cmfast==True):
             print('WARNING!' \
             'You set Flag_emulate_21cmfast == True.' \
             'HMF_interpolator applyies corrections to sigma(M) and growth(z) to match the 21cmFAST cosmology. ' \
@@ -483,18 +483,18 @@ class HMF_interpolator:
 
         self.HMFtab = np.zeros_like(self.sigmaMhtab)
 
-        # fill HMF table (Mh,z) using either ST or Tinker, depending on the choice in Cosmo_Parameters, using the sigma(M,z) and dsigma/dM(M,z) from CLASS.
+        # fill HMF table (Mh,z) using either ST or Tinker, depending on the choice in CosmoParams, using the sigma(M,z) and dsigma/dM(M,z) from CLASS.
         for iM, MM in enumerate(self.Mhtab):
             for iz, zz in enumerate(self.zHMFtab):
                 sigmaM = self.sigmaMhtab[iM,iz]
                 dsigmadM = self.dsigmadMMhtab[iM,iz]
 
-                if(Cosmo_Parameters.HMF_CHOICE == 'ST'):
-                    self.HMFtab[iM,iz] = ST_HMF(Cosmo_Parameters, MM, sigmaM, dsigmadM)
-                elif(Cosmo_Parameters.HMF_CHOICE == 'Yung'):
-                    self.HMFtab[iM,iz] = Tink_HMF(Cosmo_Parameters, MM, sigmaM, dsigmadM,zz)
+                if(CosmoParams.HMF_CHOICE == 'ST'):
+                    self.HMFtab[iM,iz] = ST_HMF(CosmoParams, MM, sigmaM, dsigmadM)
+                elif(CosmoParams.HMF_CHOICE == 'Yung'):
+                    self.HMFtab[iM,iz] = Tink_HMF(CosmoParams, MM, sigmaM, dsigmadM,zz)
                 else:
-                    print('ERROR, use a correct Cosmo_Parameters.HMF_CHOICE')
+                    print('ERROR, use a correct CosmoParams.HMF_CHOICE')
                     self.HMFtab[iM,iz] = 0.0
 
         # set min HMF to avoid overflowing
@@ -514,8 +514,8 @@ class HMF_interpolator:
         self.dsigmadMintlog = RegularGridInterpolator(self.fitMztab, self.dsigmadMMhtab, bounds_error = False, fill_value = np.nan)
 
         # interpolator for sigma(R); typically, R >> Rhalo, so we need a new table
-        self.sigmaofRtab = np.array([[Cosmo_Parameters.ClassCosmo.sigma(RR,zz) for zz in self.zHMFtab] for RR in Cosmo_Parameters._Rtabsmoo])
-        self.fitRztab = [np.log(Cosmo_Parameters._Rtabsmoo), self.zHMFtab]
+        self.sigmaofRtab = np.array([[CosmoParams.ClassCosmo.sigma(RR,zz) for zz in self.zHMFtab] for RR in CosmoParams._Rtabsmoo])
+        self.fitRztab = [np.log(CosmoParams._Rtabsmoo), self.zHMFtab]
         self.sigmaRintlog = RegularGridInterpolator(self.fitRztab, self.sigmaofRtab, bounds_error = False, fill_value = np.nan) 
 
 
@@ -611,13 +611,13 @@ class HMF_interpolator:
         return self.dsigmadMintlog(inarray)
 
 
-def growth(Cosmo_Parameters, z):
+def growth(CosmoParams, z):
     """
     Interpolator to find the scale-independent growth factor.
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters, used to compute the growth factor with CLASS.
     z : float
         Redshift.
@@ -629,7 +629,7 @@ def growth(Cosmo_Parameters, z):
     """
 
     zlist = np.asarray([z]) if np.isscalar(z) else np.asarray(z)
-    if (Cosmo_Parameters.Flag_emulate_21cmfast==True):
+    if (CosmoParams.Flag_emulate_21cmfast==True):
         print('WARNING!' \
         'You set Flag_emulate_21cmfast == True.' \
         'growth() applyies corrections to match the 21cmFAST cosmology. ' \
@@ -639,10 +639,10 @@ def growth(Cosmo_Parameters, z):
         # NOTE! This factor should be corrected if your cosmology is not Planck2018
         _offsetgrowthdicke21cmFAST = 1-0.000248*(zlist-5.)
 
-        return Cosmo_Parameters.growthint(zlist) * _offsetgrowthdicke21cmFAST
+        return CosmoParams.growthint(zlist) * _offsetgrowthdicke21cmFAST
     
     else:
-        return Cosmo_Parameters.growthint(zlist)
+        return CosmoParams.growthint(zlist)
 
 
 def dgrowth_dz(CosmoParams, z):
@@ -651,7 +651,7 @@ def dgrowth_dz(CosmoParams, z):
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters, used to compute the growth factor with CLASS.
     z : float
         Redshift.
@@ -668,13 +668,13 @@ def dgrowth_dz(CosmoParams, z):
     return (growth(CosmoParams, z+dzlist)-growth(CosmoParams, z-dzlist))/(2.0*dzlist)
 
 
-def T021(Cosmo_Parameters, z):
+def T021(CosmoParams, z):
     """
     Prefactor in mK to T21 that only depends on cosmological parameters and z. See Eq.(21) in 2110.13919
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters, used to compute the growth factor with CLASS.
     z : float
         Redshift.
@@ -685,17 +685,17 @@ def T021(Cosmo_Parameters, z):
         Prefactor in mK to T21
     """
 
-    return 34 * pow((1+z)/16.,0.5) * (Cosmo_Parameters.omegab/0.022) * pow(Cosmo_Parameters.omegam/0.14,-0.5)
+    return 34 * pow((1+z)/16.,0.5) * (CosmoParams.omegab/0.022) * pow(CosmoParams.omegam/0.14,-0.5)
 
 
-def bias_ST(Cosmo_Parameters, sigmaM):
+def bias_ST(CosmoParams, sigmaM):
     """
     Bias of halos in the Sheth-Tormen model. 
     See https://arxiv.org/pdf/1007.4201.pdf Table 1
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters, used to compute the growth factor with CLASS.
     sigmaM : float
         Variance of the matter density field smoothed on a scale corresponding to the halo mass.
@@ -706,22 +706,22 @@ def bias_ST(Cosmo_Parameters, sigmaM):
         Halo bias
     """
 
-    a_ST = Cosmo_Parameters.a_ST
-    p_ST = Cosmo_Parameters.p_ST
-    delta_crit_ST = Cosmo_Parameters.delta_crit_ST
+    a_ST = CosmoParams.a_ST
+    p_ST = CosmoParams.p_ST
+    delta_crit_ST = CosmoParams.delta_crit_ST
     nu = delta_crit_ST/sigmaM
     nutilde = np.sqrt(a_ST) * nu
     
     return 1.0 + (nutilde**2 - 1.0 + 2. * p_ST/(1.0 + nutilde**(2. * p_ST) ) )/delta_crit_ST 
 
 
-def bias_Tinker(Cosmo_Parameters, sigmaM):
+def bias_Tinker(CosmoParams, sigmaM):
     """
     Bias of halos in the Tinker model. See https://arxiv.org/pdf/1001.3162.pdf for Delta = 200
 
     Parameters
     ----------
-    Cosmo_Parameters : Cosmo_Parameters
+    CosmoParams : CosmoParams
         Cosmological parameters, used to compute the growth factor with CLASS.
     sigmaM : float
         Variance of the matter density field smoothed on a scale corresponding to the halo mass.
@@ -732,7 +732,7 @@ def bias_Tinker(Cosmo_Parameters, sigmaM):
         Halo bias
     """
 
-    delta_crit_ST = Cosmo_Parameters.delta_crit_ST # critical density for collapse
+    delta_crit_ST = CosmoParams.delta_crit_ST # critical density for collapse
     nu = delta_crit_ST/sigmaM
     
     #Tinker fit
