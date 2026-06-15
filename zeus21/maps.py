@@ -475,10 +475,10 @@ class T21_maps:
             self.T21avg = CoeffStructure.T21avg[_iz]
         
         ### get power spectra
-        self._Dsq_T21_lin = (PowerSpectra.Deltasq_T21_lin[_iz].T * self.T21avg**2).T
-        self._Dsq_T21 = (PowerSpectra.Deltasq_T21[_iz].T * self.T21avg**2).T
-        self._PdT21 = PowerSpectra.Deltasq_dT21[_iz]/self._k3over2pi2
-        self._Pd = PowerSpectra.Deltasq_d_lin[_iz,:]/self._k3over2pi2
+        self._Dsq_T21_lin = ((PowerSpectra.Deltasq_T21_lin[_iz].T / CoeffStructure.T21avg**2) * self.T21avg**2).T
+        self._Dsq_T21 = ((PowerSpectra.Deltasq_T21[_iz].T / CoeffStructure.T21avg**2) * self.T21avg**2).T
+        self._PdT21 = (PowerSpectra.Deltasq_dT21[_iz]/CoeffStructure.T21avg)/self._k3over2pi2
+        self._Pd = (PowerSpectra.Deltasq_d_lin[_iz,:]/CoeffStructure.T21avg)/self._k3over2pi2
 
         ### generate densities
         self.density, pbs = self.generate_density_pb()
