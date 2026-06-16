@@ -398,7 +398,7 @@ class reionization_global:
 
     def analytic_Q(self, CosmoParams, z): #analytically integrating the BMF to get Q
         z = np.atleast_1d(z)
-        Rmin = 1e-10 #arbitrarily small
+        Rmin = self.Rs_BMF[0]# Fixing analytic to fit numeric (old version: 1e-10, arbitrarily small)
         B0 = self.B_0(z)
         B1 = self.B_1(z)
         sigmin = CosmoParams.ClassCosmo.sigma(Rmin, z[0])*CosmoParams.growthint(z)/CosmoParams.growthint(z[0]) ### Faster to multiply sigma by the growth but there is a 0.2% error on the xHII_avg
