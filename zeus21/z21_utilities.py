@@ -28,8 +28,22 @@ except ImportError:
 
 
 def powerboxCtoR(pbobject,mapkin = None):
-    'Function to convert a complex field to real 3D (eg density, T21...) on the powerbox notation'
-    'Takes a powerbox object pbobject, and a map in k space (mapkin), or otherwise assumes its pbobject.delta_k() (tho in that case it should be delta_x() so...'
+    """
+    Converts a complex field to real 3D (eg density, T21...) on the powerbox notation.
+
+    Parameters
+    ----------
+    pbobject: powerbox.PowerBox
+        PowerBox object 
+    mapkin: np.ndarray
+        Map of the field in k space. Default is None. 
+        Otherwise assumes its pbobject.delta_k() (although in that case it should be directly pbobject.delta_x()).
+
+    Returns
+    ----------
+    realmap: np.ndarray
+        Real 3D field
+    """
 
     realmap = empty((pbobject.N,) * pbobject.dim, dtype='complex128')
     if (mapkin is None):
@@ -42,6 +56,23 @@ def powerboxCtoR(pbobject,mapkin = None):
     return realmap
 
 def tophat_smooth(rr, ks, dk):
+    """
+    Top-hat smoothing.
+
+    Parameters
+    ----------
+    rr: np.ndarray
+        Array of radii.
+    ks: np.ndarray
+        Array of wave numbers.
+    dk: np.ndarray
+        Field to be smoothed in Fourier space.
+
+    Returns
+    ----------
+    np.ndarray
+        Smoothed field in real space.
+    """
     x = ks * rr + 1e-5
     win_k = 3/(x**3) * (np.sin(x) - x*np.cos(x))
     deltakfilt = dk * win_k
@@ -51,18 +82,80 @@ def tophat_smooth(rr, ks, dk):
 
 
 def _WinTH(k,R):
+    """
+    3D top-hat window function.
+
+    Parameters
+    ----------
+    k: np.ndarray
+        Array of wave numbers.
+    R: np.ndarray
+        Array of radii.
+
+    Returns
+    ----------
+    np.ndarray
+        3D window function.
+    """
     x = k * R
     return 3.0/x**2 * (np.sin(x)/x - np.cos(x))
 
 def _WinTH1D(k,R):
+    """
+    1D top-hat window function.
+
+    Parameters
+    ----------
+    k: np.ndarray
+        Array of wave numbers.
+    R: np.ndarray
+        Array of radii.
+
+    Returns
+    ----------
+    np.ndarray
+        1D window function.
+    """
     x = k * R
     return  np.sin(x)/x
 
 def _WinG(k,R):
+    """
+    Gaussian window function.
+
+    Parameters
+    ----------
+    k: np.ndarray
+        Array of wave numbers.
+    R: np.ndarray
+        Array of radii.
+
+    Returns
+    ----------
+    np.ndarray
+        Window function.
+    """
     x = k * R * constants.RGauss_factor
     return np.exp(-x**2/2.0)
 
 def Window(k, R, WINDOWTYPE="TOPHAT"):
+    """
+    Window function.
+
+    Parameters
+    ----------
+    k: np.ndarray
+        Array of wave numbers.
+    R: np.ndarray
+        Array of radii.
+    WINDOWTYPE: str
+        Which window function to return. Default is TOPHAT. Can also be GAUSS or TOPHAT1D.
+
+    Returns
+    ----------
+    np.ndarray
+        Window function.
+    """
     if WINDOWTYPE == 'TOPHAT':
         return _WinTH(k, R)
     elif WINDOWTYPE == 'GAUSS':
@@ -77,6 +170,21 @@ def Window(k, R, WINDOWTYPE="TOPHAT"):
 
 
 def find_nearest_idx(array, values):
+    """
+    Finds the nearest indices for some values inside another array. 
+
+    Parameters
+    ----------
+    array: np.ndarray
+        Array from which to find the indices.
+    values: np.ndarray
+        Values for which we are searching the indices in array.
+
+    Returns
+    ----------
+    np.ndarray
+        Array of indices.
+    """
     array = np.atleast_1d(array)
     values = np.atleast_1d(values)
     idx = []
@@ -85,18 +193,66 @@ def find_nearest_idx(array, values):
     return np.unique(idx)
 
 def print_timer(start_time, text_before="", text_after=""):
+    """
+    Prints the duration since an initial time.
+
+    Parameters
+    ----------
+    start_time: time.time()
+        Initial time.
+    text_before: str
+        Text to print in front of the timer. Default is "".
+    text_after: str
+        Text to print after the timer. Default is "".
+    """
     elapsed_time = time.time() - start_time
     mins = int(elapsed_time//60)
     secs = int(elapsed_time - mins*60)
     print(f"{text_before}{mins}min {secs}s{text_after}")
 
 def v2r(v):
+    """
+    Computes the radius from a volume assuming a sphericity.
+
+    Parameters
+    ----------
+    v: float | np.ndarray
+        Volume of the object.
+
+    Returns
+    ----------
+    float | np.ndarray
+       Radius of the object.
+    """
     return (3/4/np.pi * v)**(1/3)
     
 def r2v(r):
+    """
+    Computes the volume of a sphere of radius r.
+
+    Parameters
+    ----------
+    r: float | np.ndarray
+        Radius.
+
+    Returns
+    ----------
+    float | np.ndarray
+       Volume.
+    """
     return 4/3 * np.pi * r**3
 
 def delete_class_attributes(class_instance): # delete all attributes of the class instance
+    """
+    Properly deallocates all the attributes of a class instance. Calls the garbage collector.
+    Useful when we want to deallocate an instance 
+    (doing del cls will not deallocate the attributes instantly as long as the garbage collector hasn't run).
+
+    Parameters
+    ----------
+    class_instance: cls instance
+        Class instance.
+    """
     for attr in list(class_instance.__dict__):    
         delattr(class_instance, attr)
     gc.collect()
@@ -226,11 +382,15 @@ def pdf_fft_convolution(mu1, sigma1, mu2, sigma2, highp=0.99):
 
 
 def sigma_log10(sigmaquantity, meanquantity):
-    "Returns the sigma(log10) for a given quantity with mean and sigma in linear units"
+    """
+    Returns the sigma(log10) for a given quantity with mean and sigma in linear units
+    """
     return np.sqrt(np.log((sigmaquantity/meanquantity)**2+1.))/np.log(10)
 
 def mean_log10(sigmaquantity, meanquantity):
-    "Returns the mean(log10) for a given quantity with mean and sigma in linear units"
+    """
+    Returns the mean(log10) for a given quantity with mean and sigma in linear units
+    """
     return np.log10(meanquantity)- 1/2 * np.log10(1 + sigmaquantity**2/meanquantity**2)
 
 
