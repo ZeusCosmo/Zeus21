@@ -57,7 +57,7 @@ def test_T21_coefficients_initialization():
     """Test the initialization of T21 coefficients class"""
     # Set up the necessary objects
     zmin_test = 20.0
-    UserParams = zeus21.User_Parameters(zmin_T21=zmin_test)
+    UserParams = zeus21.User_Parameters(zmin=zmin_test)
     CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100.) # Use higher kmax as in test_astrophysics.py
     
     AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
