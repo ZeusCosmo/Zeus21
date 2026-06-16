@@ -429,13 +429,19 @@ class get_T21_coefficients:
         Hirata2006 correction to the LyA flux (Eq 55 in astro-ph/0608032)
     """
 
-    def __init__(self, UserParams, CosmoParams, AstroParams, HMFinterp):
+    def __init__(self, UserParams, CosmoParams, AstroParams, HMFinterp, z_Init =None, SFRD_Init=None):
 
-        # Initialize redshift tables
-        self.z_Init = Z_init(UserParams, CosmoParams)
+        # if z_Init and SFRD_Init are not provided, we initialize them here. This allows us to avoid redundant computations if they were already initialized in the parent class and passed as arguments.
+        if z_Init is None:
+            # to perform cross-correlation studies, the redshift array has to be the same as in zeus21
+            self.z_Init = Z_init(UserParams=UserParams, CosmoParams=CosmoParams) 
+        else:
+            self.z_Init = z_Init
 
-        # Initialize and compute the SFRD approximation
-        self.SFRD_Init = SFRD_class(UserParams, CosmoParams, AstroParams, HMFinterp, self.z_Init) 
+        if SFRD_Init is None:
+            self.SFRD_Init = SFRD_class(UserParams, CosmoParams, AstroParams, HMFinterp, self.z_Init) 
+        else: 
+            self.SFRD_Init = SFRD_Init
         
         # Computing lambdas in velocity anisotropies
         # The SFRD vcb dependence is delta independent, therefore we compute quantities below for a variety of R's and delta_R = 0
