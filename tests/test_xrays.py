@@ -16,7 +16,7 @@ import numpy as np
 
 from zeus21.T21coefficients import Xrays_class
 
-UserParams = zeus21.User_Parameters(zmin_T21=20.)
+UserParams = zeus21.User_Parameters(zmin=20.)
 
 CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100.) #to speed up
 AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)

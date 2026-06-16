@@ -17,7 +17,7 @@ from zeus21.sfrd import *
 from zeus21.correlations import *
 
 ZMIN = 20.0 #down to which z we compute the evolution
-UserParams = zeus21.User_Parameters(zmin_T21=ZMIN)
+UserParams = zeus21.User_Parameters(zmin=ZMIN)
 
 CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100.) #to speed up a little
 HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)

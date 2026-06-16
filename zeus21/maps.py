@@ -470,7 +470,7 @@ class T21_maps:
         if self.USE_xHII_MAPS:
             # in this case, we will use the simulated xHI with reionization_maps
             # so, we need to remove the xHI contribution from T21avg
-            self.T21avg = (CoeffStructure.T21avg / CoeffStructure.xHI_avg)[_iz]
+            self.T21avg = (CoeffStructure.T21avg / (CoeffStructure.xHI_avg + 1e-15))[_iz]
         else:
             self.T21avg = CoeffStructure.T21avg[_iz]
         

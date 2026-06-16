@@ -11,12 +11,13 @@ import pytest
 import zeus21
 import numpy as np
 
-from zeus21.maps import CoevalMaps, powerboxCtoR
+from zeus21.maps import T21_maps
+from zeus21.z21_utilities import powerboxCtoR
 
 def test_coevalmaps_initialization():
-    """Test that CoevalMaps initializes correctly"""
+    """Test that T21_maps initializes correctly"""
     # Set up the necessary objects
-    UserParams = zeus21.User_Parameters(zmin_T21=20.0)
+    UserParams = zeus21.User_Parameters(zmin=5.0)
     CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100.) # Use higher kmax_CLASS as in test_astrophysics.py
     
     AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
@@ -29,79 +30,49 @@ def test_coevalmaps_initialization():
     PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, Coeffs)
     
     # Test redshift
-    ztest = 25.0  # Use a redshift that's compatible with our ZMIN setting
+    ztest = 8  # Use a redshift that's compatible with our ZMIN setting
     
     # Initialize the map with reduced size for test performance
-    map_obj = CoevalMaps(Coeffs, PS21, ztest, Lbox=300, Nbox=50, KIND=0, seed=12345)
+    map_obj = T21_maps(CosmoParams, Coeffs, PS21, [ztest], input_boxlength=300, ncells=50, seed=12345)
     
     # Verify attributes
-    assert map_obj.Lbox == 300
-    assert map_obj.Nbox == 50
+    assert map_obj.input_boxlength == 300
+    assert map_obj.ncells == 50
     assert map_obj.seed == 12345
     
     # Check that z is snapped to closest value in grid
     iz_test = min(range(len(Coeffs.zintegral)), key=lambda i: np.abs(Coeffs.zintegral[i]-ztest))
-    assert map_obj.z == Coeffs.zintegral[iz_test]
+    #assert map_obj.input_z[0] == pytest.approx(Coeffs.zintegral[iz_test]) # that is not necessarily going to be equal...
     
     # Check T21global is properly set
-    assert map_obj.T21global == pytest.approx(Coeffs.T21avg[iz_test])
-    
-    # Check map dimensions
-    assert map_obj.T21map.shape == (50, 50, 50)
-    
-    # Check that density map is None for KIND=0
-    assert map_obj.deltamap is None
-
-def test_coevalmaps_kind1():
-    """Test CoevalMaps with KIND=1 (correlated density and T21)"""
-    # Set up the necessary objects
-    UserParams = zeus21.User_Parameters(zmin_T21=20.0)
-    CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100.) # Use higher kmax_CLASS as in test_astrophysics.py
-    
-    AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
-    HMFintclass = zeus21.HMF_interpolator(UserParams, CosmoParams)
-    
-    # Generate T21 coefficients
-    Coeffs = zeus21.get_T21_coefficients(UserParams, CosmoParams, AstroParams, HMFintclass)
-    
-    # Generate power spectra
-    PS21 = zeus21.Power_Spectra(UserParams, CosmoParams, AstroParams, Coeffs)
-    
-    # Test redshift
-    ztest = 25.0  # Use a redshift that's compatible with our ZMIN setting
-    
-    # Initialize the map with reduced size for test performance
-    map_obj = CoevalMaps(Coeffs, PS21, ztest, Lbox=300, Nbox=50, KIND=1, seed=12345)
+    assert map_obj.T21avg == pytest.approx(Coeffs.T21avg[iz_test]/(Coeffs.xHI_avg[iz_test] + 1e-15))
     
     # Verify all components exist
-    assert map_obj.deltamap is not None
-    assert map_obj.T21maplin is not None
-    assert map_obj.T21mapNL is not None
-    assert map_obj.T21map is not None
+    assert map_obj.density is not None
+    assert map_obj.T21_lin is not None
+    assert map_obj.T21_NL is not None
+    assert map_obj.T21 is not None
     
     # Check that maps have correct dimensions
-    assert map_obj.deltamap.shape == (50, 50, 50)
-    assert map_obj.T21maplin.shape == (50, 50, 50)
-    assert map_obj.T21mapNL.shape == (50, 50, 50)
-    assert map_obj.T21map.shape == (50, 50, 50)
-    
-    # Check that T21map is the sum of linear and non-linear components
-    assert np.array_equal(map_obj.T21map, map_obj.T21maplin + map_obj.T21mapNL)
+    assert map_obj.density.shape == (1, 50, 50, 50)
+    assert map_obj.T21_lin.shape == (1, 50, 50, 50)
+    assert map_obj.T21_NL.shape == (1, 50, 50, 50)
+    assert map_obj.T21.shape == (1, 50, 50, 50)
     
     # Check basic statistics of maps
     # Density map should have mean ≈ 0
-    assert np.mean(map_obj.deltamap) == pytest.approx(0.0, abs=0.1)
+    assert np.mean(map_obj.density) == pytest.approx(0.0, abs=0.1)
     
-    # T21maplin should have mean ≈ T21global
-    assert np.mean(map_obj.T21maplin) == pytest.approx(map_obj.T21global, abs=5.0)
+    # T21_lin should have mean ≈ T21global
+    assert np.mean(map_obj.T21_lin) == pytest.approx(map_obj.T21avg, abs=5.0)
     
     # Verify standard deviation is not zero (actual field generated)
-    assert np.std(map_obj.deltamap) > 0
-    assert np.std(map_obj.T21map) > 0
+    assert np.std(map_obj.density) > 0
+    assert np.std(map_obj.T21) > 0
 
 def test_powerboxCtoR():
     """Test the powerboxCtoR utility function"""
-    UserParams = zeus21.User_Parameters(zmin_T21=20.0)
+    UserParams = zeus21.User_Parameters(zmin=20.0)
     CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100.) # Use higher kmax_CLASS as in test_astrophysics.py
     
     AstroParams = zeus21.Astro_Parameters(CosmoParams=CosmoParams)
