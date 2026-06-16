@@ -81,6 +81,7 @@ class reionization_global:
         self.BMF = np.repeat([np.eye(len(self.Rs_BMF))[self.R_linear_sigma_fit_idx]], len(self.zlist), axis=0)
 
         self.peakRofz = np.array([self.BMF_peak_R(z) for z in self.zlist])
+        self.peakRofz = self.monotonic_after_peak(self.peakRofz)
         self.peakRofz_int = interp1d(self.zlist, self.peakRofz, bounds_error = False, fill_value = None)
 
         #second computation of BMF using the initial guess peaks
@@ -295,6 +296,7 @@ class reionization_global:
 
     #computing linear barrier
     def B_1(self, z):
+        z = np.atleast_1d(z)
         R_pivot = self.peakRofz_int(z)
         sigmax = np.diagonal(self.sigma_zR_int(z[:, None], (R_pivot*1.1)[None, :]))
         sigmin = np.diagonal(self.sigma_zR_int(z[:, None], (R_pivot*0.9)[None, :]))
@@ -303,6 +305,7 @@ class reionization_global:
         return (barriermax - barriermin)/(sigmax**2 - sigmin**2)
         
     def B_0(self, z):
+        z = np.atleast_1d(z)
         R_pivot = self.peakRofz_int(z)
         sigmin = np.diagonal(self.sigma_zR_int(z[:, None], (R_pivot*0.9)[None, :]))
         barriermin = np.diagonal(self.barrier_zR_int(z[:, None], (R_pivot*0.9)[None, :]))
@@ -331,54 +334,67 @@ class reionization_global:
     def Rdn_dR(self, z, R):
         return self.VRdn_dR(z, R)*3/(4*np.pi*R[None, :]**3)
 
-    def BMF_peak_R(self, z, fit_window=5, max_bubble=100, min_bubble = 0.2):
+    def BMF_peak_R(self, z, fit_window=5, max_bubble=100, min_bubble=0.5):
+        min_bubble = np.max([self.Rs[1], min_bubble])
+
         iz = z21_utilities.find_nearest_idx(self.zlist, z)[0]
 
-        # Find the coarse peak index
-        ir_peak = np.argmax(self.BMF[iz])
+        R = self.Rs_BMF
+        y = self.BMF[iz]
 
-        # Slice a window around the peak
+        # Keep only finite positive values
+        good = np.isfinite(y) & (y > 0) & np.isfinite(R)
+        if not np.any(good):
+            return min_bubble
+
+        R_good = R[good]
+        y_good = y[good]
+
+        # Coarse peak index
+        ir_peak = np.argmax(y_good)
+
+        # Fit spline around the peak to get more precise.
+        # Find where derivative = 0. If too close to edge, return bounds.
         i_lo = max(0, ir_peak - fit_window)
-        i_hi = min(len(self.Rs_BMF), ir_peak + fit_window + 1)
-        
-        R_window = self.Rs_BMF[i_lo:i_hi]
-        BMF_row = self.BMF[iz, :]
-        BMF_window = BMF_row[i_lo:i_hi]
-        
-        # If the peak is within fit_window of either edge, the true peak may
-        # be at the boundary — skip the spline and return the coarse peak
-        peak_at_left_edge  = (ir_peak - fit_window <= 0)
-        peak_at_right_edge = (ir_peak + fit_window >= len(self.Rs_BMF) - 1)
-        
-        if peak_at_left_edge or peak_at_right_edge:
-            return np.clip(self.Rs_BMF[ir_peak], min_bubble, max_bubble)
-        
-        # Also guard against a window that's too small to fit a degree-4 spline
-        # (need at least k+1 = 5 points)
+        i_hi = min(len(R_good), ir_peak + fit_window + 1)
+
+        R_window = R_good[i_lo:i_hi]
+        y_window = y_good[i_lo:i_hi]
+
         if len(R_window) < 5:
-            return np.clip(self.Rs_BMF[ir_peak], min_bubble, max_bubble)
-        
-        # Fit a spline and find its maximum
-        spline = UnivariateSpline(R_window, BMF_window, k=4, s=0)
-        roots = spline.derivative().roots()
-        
-        # Keep only roots that are local maxima (second derivative < 0)
-        # and lie within the window bounds
-        d2 = spline.derivative(n=2)
+            return np.clip(R_good[ir_peak], min_bubble, max_bubble)
+
+        x = np.log(R_window)
+        ly = np.log(y_window)
+
+        spline_fit = UnivariateSpline(x, ly, k=4, s=0)
+        roots = spline_fit.derivative().roots()
+
+        d2 = spline_fit.derivative(n=2)
+
         valid_roots = [
-            r for r in roots
-            if d2(r) < 0 and R_window[0] <= r <= R_window[-1]
+            root for root in roots
+            if x[0] <= root <= x[-1] and d2(root) < 0
         ]
-        
-        # Return the valid root closest to the coarse peak, or fall back
+
         if len(valid_roots) == 0:
-            return np.clip(self.Rs_BMF[ir_peak], min_bubble, max_bubble)
-        
-        ir_peak_R = self.Rs_BMF[ir_peak]
+            peak_R = R_good[ir_peak]
+        else:
+            x_peak_guess = np.log(R_good[ir_peak])
+            x_peak = valid_roots[np.argmin(np.abs(np.array(valid_roots) - x_peak_guess))]
+            peak_R = np.exp(x_peak)
 
-        peak_R = valid_roots[np.argmin(np.abs(np.array(valid_roots) - ir_peak_R))]
+        return np.clip(peak_R, min_bubble, max_bubble)
 
-        return np.clip(peak_R, min_bubble, max_bubble) #peak can't be outside the allowed bounds
+    def monotonic_after_peak(self, x):
+        x = np.asarray(x).copy()
+
+        i_peak = np.nanargmax(x)
+
+        # Right side should be non-increasing after the peak
+        x[i_peak:] = np.minimum.accumulate(x[i_peak:])
+
+        return x
 
     def analytic_Q(self, CosmoParams, z): #analytically integrating the BMF to get Q
         z = np.atleast_1d(z)
@@ -401,6 +417,7 @@ class reionization_global:
             
             self.BMF = self.VRdn_dR(self.zlist, self.Rs_BMF)
             self.peakRofz = np.array([self.BMF_peak_R(z) for z in self.zlist])
+            self.peakRofz = self.monotonic_after_peak(self.peakRofz)
             self.peakRofz_int = interp1d(self.zlist, self.peakRofz, bounds_error = False, fill_value = None)
 
             self.ion_frac = np.nan_to_num(self.analytic_Q(CosmoParams, self.zlist))
