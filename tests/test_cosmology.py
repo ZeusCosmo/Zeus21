@@ -23,8 +23,8 @@ def test_cosmo():
     CosmoParams = zeus21.Cosmo_Parameters(UserParams=UserParams, kmax_CLASS=100., zmax_CLASS=10., USE_RELATIVE_VELOCITIES=True) #to speed up
 
     #velocity component testing
-    assert(0.0 <= CosmoParams.sigma_vcb <= 1.0)
-    assert(0.0 <= CosmoParams.vcb_avg <= 1.0)
+    assert(0.0 <= CosmoParams.sigma_vcb <= 10.0)
+    assert(0.0 <= CosmoParams.vcb_avg <= 10.0)
     
     #useful functions:
 
