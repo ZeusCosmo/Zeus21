@@ -190,8 +190,8 @@ class SFRD_class:
         if z_Init is None:
             z_Init = Z_init(UserParams=UserParams, CosmoParams=CosmoParams)  
 
-        zSFRDflat = np.geomspace(UserParams.zmin_T21, constants.zmax_AstroBreak, 128)  # extend to z = constants.zmax_AstroBreak for extrapolation purposes. Higher in z than zInit.zintegral
-        zSFRD, mArray = np.meshgrid(zSFRDflat, HMFinterp.Mhtab, indexing = 'ij', sparse = True)  # create redshift and halo mass matrices, dimension (z, Mh)
+        zSFRDflat = np.geomspace(UserParams.zmin, constants.zmax_AstroBreak, 128) # extend to z = constants.zmax_AstroBreak for extrapolation purposes. Higher in z than zInit.zintegral
+        zSFRD, mArray = np.meshgrid(zSFRDflat, HMFinterp.Mhtab, indexing = 'ij', sparse = True) # create redshift and halo mass matrices, dimension (z, Mh)
 
         init_J21LW_interp = interpolate.interp1d(zSFRDflat, np.zeros_like(zSFRDflat), kind = 'linear', bounds_error = False, fill_value = 0,)  # initialize no LW background, used to compute Mmol() function, NOT the individual Pop II and III LW background
 
