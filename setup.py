@@ -14,7 +14,7 @@ setup(
           packages=['zeus21'],
           long_description=open('README.md').read(),
           install_requires=[
-           "numpy",
+           "numpy>=2.0",
            "scipy",
            "mcfit",
            "classy",

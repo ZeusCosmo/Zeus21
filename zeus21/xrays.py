@@ -43,7 +43,7 @@ class Xray_class:
         # divided by factor of H(z')(1+z') because of variable of integration change from proper distance to redshift
         integrand = 1.0/HubinvMpc(Cosmo_Parameters, zinttau)/(1+zinttau) * sigmatot * n_H(Cosmo_Parameters, zinttau) * constants.Mpctocm
 #        integrand = 1.0/HubinvMpc(Cosmo_Parameters, zinttau)/(1+zinttau) * sigmatot * n_baryon(Cosmo_Parameters, zinttau) * constants.Mpctocm
-        taulist = np.trapz(integrand, zinttau, axis=1)
+        taulist = np.trapezoid(integrand, zinttau, axis=1)
 
         #OLD: kept for reference only.
         # taulist = 1.0*np.zeros_like(Envec)
@@ -55,7 +55,7 @@ class Xray_class:
         #
         #     integrand = 1.0/HubinvMpc(Cosmo_Parameters, zinttau)/(1+zinttau) * sigmatot * n_baryon(Cosmo_Parameters, zinttau) * constants.Mpctocm
         #
-        #     taulist[iE] = np.trapz(integrand, zinttau)
+        #     taulist[iE] = np.trapezoid(integrand, zinttau)
 
         indextautoolarge = np.array(taulist>=self.TAUMAX)
         taulist [indextautoolarge] = self.TAUMAX

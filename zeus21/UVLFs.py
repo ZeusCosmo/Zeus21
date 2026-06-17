@@ -80,9 +80,26 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
     
     xhi = np.subtract.outer(MUVcuthi, currMUV)/(np.sqrt(2) * sigmaUV)
     xlo = np.subtract.outer(MUVcutlo, currMUV )/(np.sqrt(2) * sigmaUV)
-    weights = (erf(xhi) - erf(xlo)).T/(2.0 * MUVwidths)
+
+    if (Astro_Parameters.min_t_formation_Myr == None):
+        min_MUV = -100.0 # essentially no cutoff, since the scatter is large at low masses and can cause numerical issues if we try to integrate over unphysically bright galaxies there. This is just a numerical cutoff, not a physical one, and the exact value doesn't matter much since the scatter is large there anyway.
+    else:
+        Mstarmax = HMF_interpolator.Mhtab * Cosmo_Parameters.OmegaB /Cosmo_Parameters.OmegaM #max stellar mass in each halo, if all baryons turned to stars
+        _tmaxSFR = Astro_Parameters.min_t_formation_Myr * 1e6 #arbitrary timescale to determine max SFR in yrs
+        SFRmax  = Mstarmax / (_tmaxSFR)
+        min_MUV = MUV_of_SFR(SFRmax, Astro_Parameters._kappaUV) #min MUV in each halo, if all baryons turned to stars at max SFR for 10 Myr. This is a very rough cutoff to avoid unphysically small MUVs (bright galaxies) at low masses, which can cause numerical issues since the scatter is large there. It's not a physical cutoff, just a numerical one. The exact value doesn't matter much since the scatter is large there anyway, but it prevents the code from trying to integrate over unphysically bright galaxies in low-mass halos.
+    x_min = (min_MUV - currMUV)/(np.sqrt(2) * sigmaUV)
+    xhi_cut = np.fmax(xhi, x_min)
+    xlo_cut = np.fmax(xlo, x_min)
+
+    weights_unnormalized = (erf(xhi_cut) - erf(xlo_cut)).T/(2.0 * MUVwidths)
+    weights = weights_unnormalized/ (0.5*(1-erf(x_min)+1e-6))[:,None] # Renormalize distributions based on the portion cut off by min_MUV
+
+    ### Standard as usual, no cuts:
+    # weights = (erf(xhi) - erf(xlo)).T/(2.0 * MUVwidths) #comment to myself, this 2 in denominator is correct here, nothing to do with the MUVwidths/2 a few lines above
     
-    UVLF_filtered = np.trapz(weights.T * HMFcurr, HMF_interpolator.Mhtab, axis=-1)
+    UVLF_filtered = np.trapezoid(weights.T * HMFcurr, HMF_interpolator.Mhtab, axis=-1)
+
 
     if(Astro_Parameters.USE_POPIII==False):
         return UVLF_filtered
@@ -98,7 +115,7 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
         xlo = np.subtract.outer(MUVcutlo, MUVbarlist_III)/(np.sqrt(2) * sigmaUV)
         weights = (erf(xhi) - erf(xlo)).T/(2.0 * MUVwidths)
 
-        UVLF_filtered_III = np.trapz(weights.T * HMFcurr, HMF_interpolator.Mhtab, axis=-1)
+        UVLF_filtered_III = np.trapezoid(weights.T * HMFcurr, HMF_interpolator.Mhtab, axis=-1)
     
         return UVLF_filtered, UVLF_filtered_III
 

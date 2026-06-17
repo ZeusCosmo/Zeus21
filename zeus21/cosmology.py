@@ -75,13 +75,13 @@ def runclass(CosmologyIn):
         theta_b = velTransFunc['t_b']
         theta_c = velTransFunc['t_cdm']
 
-        sigma_vcb = np.sqrt(np.trapz(CosmologyIn.As * (kVel/0.05)**(CosmologyIn.ns-1) /kVel * (theta_b - theta_c)**2/kVel**2, kVel)) * constants.c_kms
+        sigma_vcb = np.sqrt(np.trapezoid(CosmologyIn.As * (kVel/0.05)**(CosmologyIn.ns-1) /kVel * (theta_b - theta_c)**2/kVel**2, kVel)) * constants.c_kms
         ClassCosmo.pars['sigma_vcb'] = sigma_vcb
         
         ###HAC: now computing average velocity assuming a Maxwell-Boltzmann distribution of velocities
         velArr = np.geomspace(0.01, constants.c_kms, 1000) #in km/s
         vavgIntegrand = (3 / (2 * np.pi * sigma_vcb**2))**(3/2) * 4 * np.pi * velArr**2 * np.exp(-3 * velArr**2 / (2 * sigma_vcb**2))
-        ClassCosmo.pars['v_avg'] = np.trapz(vavgIntegrand * velArr, velArr)
+        ClassCosmo.pars['v_avg'] = np.trapezoid(vavgIntegrand * velArr, velArr)
         
         ###HAC: Computing Vcb Power Spectrum
         ClassCosmo.pars['k_vcb'] = kVel
@@ -99,8 +99,8 @@ def runclass(CosmologyIn):
         j0bessel = lambda x: np.sin(x)/x
         j2bessel = lambda x: (3 / x**2 - 1) * np.sin(x)/x - 3*np.cos(x)/x**2
         
-        psi0 = 1 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapz(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j0bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
-        psi2 = -2 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapz(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j2bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
+        psi0 = 1 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapezoid(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j0bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
+        psi2 = -2 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapezoid(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j2bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
         
         k_eta, P_eta = mcfit.xi2P(rVelIntp, l=0, lowring = True)((6 * psi0**2 + 3 * psi2**2), extrap = False)
         
