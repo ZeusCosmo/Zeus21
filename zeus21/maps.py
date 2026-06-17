@@ -202,10 +202,22 @@ class reionization_maps:
         
 
     def generate_density(self, CosmoParams):
+        """ 
+        Generates the initial density field at the lowest redshift. 
+        
+        Parameters 
+        ---------- 
+        CosmoParams : CosmoParams class 
+        
+        Returns 
+        ------- 
+        density_field : array 
+            Three-dimensional delta field evaluated at self.z_of_density. 
+        """
         if self.PRINT_TIMER:
             start_time = time.time()
             print("Generating density field...")
-        #Generating matter power spectrum at the lowest redshift
+        #generating matter power spectrum at the lowest redshift
         klist = CosmoParams._klistCF
         pk_matter = np.zeros_like(klist)
         for i, k in enumerate(klist):
@@ -223,6 +235,18 @@ class reionization_maps:
         return density_field
 
     def generate_density_allz(self, CosmoParams):
+        """ 
+        Evolves the density field to all redshifts using the linear growth factor. 
+        
+        Parameters 
+        ---------- 
+        CosmoParams : CosmoParams class 
+        
+        Returns 
+        ------- 
+        density_allz : array 
+            Four-dimensional delta field. The first dimension is z. 
+        """
         if self.PRINT_TIMER:
             start_time = time.time()
             print('Evolving density field...')
@@ -238,14 +262,32 @@ class reionization_maps:
         return self.density_allz
 
     def compute_k(self):
+        """ 
+        Computes the Fourier-space wavenumber grid for the box. 
+        
+        Returns 
+        ------- 
+        k : array 
+            Three-dimensional array of wavenumber magnitudes. 
+        """
         klistfftx = np.fft.fftfreq(self.ncells,self.dx)*2*np.pi
         k = np.sqrt(np.sum(np.meshgrid(klistfftx**2, klistfftx**2, klistfftx**2, indexing='ij'), axis=0))
         return k
 
     def smooth_density(self):
+        """ 
+        Smooths the density field over all smoothing radii. 
+        
+        Returns 
+        ------- 
+        density_smoothed_allr : array 
+            Density field smoothed at each radius in self.r. 
+        """
         if self.PRINT_TIMER:
             start_time = time.time()
             print("Smoothing density field...")
+
+        #smooth by FFT convolution with a tophat
         density_fft = np.fft.fftn(self.density)
         density_smoothed_allr = np.array([z21_utilities.tophat_smooth(rr, self._k, density_fft) for rr in self.r])
         if self.PRINT_TIMER:
@@ -253,16 +295,43 @@ class reionization_maps:
         return density_smoothed_allr
 
     def sigma_correction(self, CosmoParams):
+        """ 
+        Computes the non-ergodicity correction to the generated density variance. 
+        
+        Parameters 
+        ---------- 
+        CosmoParams : CosmoParams class 
+        
+        Returns 
+        ------- 
+        sigma_ratio : float 
+            Ratio between the measured and theoretical sigma. 
+        """
         sigma_ratio = np.std(self.density)/CosmoParams.ClassCosmo.sigma(self.r[0], self.z_of_density)
         return sigma_ratio
 
     def generate_xHII(self, CosmoParams):
+        """ 
+        Generates ionized fraction fields and volume-weighted ionized fractions. 
+        
+        Parameters 
+        ---------- 
+        CosmoParams : CosmoParams class 
+        
+        Returns 
+        ------- 
+        ion_field_allz : array 
+            Ionized fraction field at each redshift. 
+        ion_frac : array 
+            Volume-weighted ionized fraction at each redshift. 
+        """
         if self.PRINT_TIMER:
             start_time = time.time()
             print("Generating ionized field...")
         ion_field_allz = np.zeros((len(self.z),self.ncells,self.ncells,self.ncells))
         ion_frac = np.zeros(len(self.z))
 
+        #choose iterator based on if the user wants to print progress or not.
         iterator = trange(len(self.z)) if self.PRINT_TIMER else range(len(self.z))
         
         for i in iterator:
@@ -275,17 +344,47 @@ class reionization_maps:
         return ion_field_allz, ion_frac
 
     def ionize(self,CosmoParams, curr_z_idx):
-
+        """ 
+        Computes the binary ionized field at a single redshift. 
+        
+        Parameters 
+        ---------- 
+        CosmoParams : CosmoParams class 
+        curr_z_idx : int 
+            Index of the redshift at which to compute the ionized field. 
+            
+        Returns 
+        ------- 
+        ion_field : array 
+            Binary ionized field at curr_z. 
+        """
         Dg0 = CosmoParams.growthint(self.z[0])
         Dg = CosmoParams.growthint(self.z[curr_z_idx])
         Dg0_Dg = Dg0/Dg
         ion_field = np.any(self.density_smoothed_allr > (Dg0_Dg)*self.barrier[curr_z_idx, self._r_idx][:, None, None, None], axis=0)
 
-        #Earlier versions of this code contained a spherize method in addition to this central pixel flagging, where spheres are ionized instead of just the central pixel. We found that central pixel flagging is generally more consistent with the bubble mass function than spherizing, so future versions will not include this.
+        #Earlier versions of this code contained a spherize method in addition to this central pixel flagging, where spheres are ionized instead of just the central pixel. 
+        #We found that central pixel flagging is generally more consistent with the bubble mass function than spherizing, so future versions will not include this.
         
         return ion_field
     
     def compute_massweighted(self, CosmoParams, lowres_massweighting=1):
+        """ 
+        Computes the mass-weighted ionized field and ionized fraction. 
+        
+        Parameters 
+        ---------- 
+        CosmoParams : CosmoParams class
+        lowres_massweighting : int, optional 
+            Factor by which to downsample the density and ionized fields for mass weighting. Default is 1. 
+            
+        Returns 
+        ------- 
+        ion_frac_massweighted : array 
+            Mass-weighted ionized fraction at each redshift. 
+        ion_field_massweighted_allz : array 
+            Mass-weighted ionized field at each redshift. 
+        """
         if not self._has_mw:
             self.ion_frac_massweighted = np.empty(len(self.z))
             self.ion_field_massweighted_allz = np.empty_like(self.ion_field_allz)
@@ -301,6 +400,7 @@ class reionization_maps:
         if self.PRINT_TIMER:
             start_time = time.time()
             print("Computing mass-weighted field...")
+        #where the magic happens
         self.ion_field_massweighted_allz = (1+d_allz) * ion_allz
         if self.PRINT_TIMER:
             print("Computing mass-weighted ionized fraction...")
@@ -314,6 +414,23 @@ class reionization_maps:
         return self.ion_frac_massweighted, self.ion_field_massweighted_allz
 
     def compute_partial(self, CosmoParams, CoeffStructure, r=None):
+        """ 
+        Computes the partially ionized field and volume-weighted partially ionized fraction. 
+        
+        Parameters 
+        ---------- 
+        CosmoParams : CosmoParams class 
+        CoeffStructure : get_T21_coefficients class
+        r : float, optional 
+            Smoothing radius in cMpc used to evaluate the prebarrier ionized fraction. Default is None, in which case self.r[0] is used. 
+            
+        Returns 
+        ------- 
+        ion_frac_partial : array 
+            Volume-weighted partially ionized fraction at each redshift. 
+        ion_field_partial_allz : array 
+            Partially ionized field at each redshift. 
+        """
         if r is None:
             r = self.r[0]
         if not self._has_p:
@@ -327,14 +444,17 @@ class reionization_maps:
             start_time = time.time()
             print("Computing partially ionized field...")
 
+        #loop over each z.
         out_shape = self.density.shape
         iterator = trange(len(self.z)) if self.PRINT_TIMER else range(len(self.z))
         for i in iterator:
+            #evaluate sample grid, and then input the actual density field into an interpolator.
             tempgrid = CoeffStructure.prebarrier_xHII_int_grid(sample_d, self.z[i], r)
             
             partialfield = np.interp(self.density.ravel(), sample_d, tempgrid).reshape(out_shape)
             
-            np.abs(partialfield, out=partialfield)#abs just in case, but it never actually triggers afaik
+            np.abs(partialfield, out=partialfield)#abs just in case, beacuse negative numbers here are unphysical
+            #add partials to binaries and then clip to 1.
             np.add(self.ion_field_allz[i], partialfield, out=self.ion_field_partial_allz[i])
             np.clip(self.ion_field_partial_allz[i], 0, 1, out=self.ion_field_partial_allz[i])
 
@@ -351,6 +471,23 @@ class reionization_maps:
         return self.ion_frac_partial, self.ion_field_partial_allz
 
     def compute_partial_massweighted(self, CosmoParams, CoeffStructure, r=None):
+        """ 
+        Computes the mass-weighted partially ionized field and fraction. 
+        
+        Parameters 
+        ---------- 
+        CosmoParams : CosmoParams class 
+        CoeffStructure : get_T21_coefficients class 
+        r : float, optional 
+            Smoothing radius in cMpc used to evaluate the prebarrier ionized fraction. Default is None, in which case self.r[0] is used. 
+            
+        Returns 
+        ------- 
+        ion_frac_partial_massweighted : array 
+            Mass-weighted partially ionized fraction at each redshift. 
+        ion_field_partial_massweighted_allz : array 
+            Mass-weighted partially ionized field at each redshift. 
+        """
         if not self._has_p:
             self.compute_partial(CosmoParams, CoeffStructure, r)
 
@@ -362,6 +499,7 @@ class reionization_maps:
             start_time = time.time()
             print("Computing mass-weighted partially ionized field...")
 
+        #where the magic happens
         iterator = trange(len(self.z)) if self.PRINT_TIMER else range(len(self.z))
         for i in iterator:
             self.ion_field_partial_massweighted_allz[i] = (1+self.density_allz[i]) * self.ion_field_partial_allz[i]
@@ -381,6 +519,14 @@ class reionization_maps:
         return self.ion_frac_partial_massweighted, self.ion_field_partial_massweighted_allz
 
     def compute_zreion_frombinaryxHII(self):
+        """ 
+        Computes the redshift-of-reionization map from the binary ionized fraction field. 
+        
+        Returns 
+        ------- 
+        zreion : array 
+            Three-dimensional map of the z at which each cell is first ionized. 
+        """
         if self.PRINT_TIMER:
             start_time = time.time()
             print("Computing zreion map...")
@@ -393,6 +539,18 @@ class reionization_maps:
         return zreion
     
     def compute_treion(self,CosmoParams):
+        """ 
+        Computes the time-of-reionization map from the redshift-of-reionization map. 
+        
+        Parameters 
+        ---------- 
+        CosmoParams : CosmoParams class 
+        
+        Returns 
+        ------- 
+        treion : array 
+            Three-dimensional map of the time at which each cell becomes ionized. 
+        """
         if self.PRINT_TIMER:
             start_time = time.time()
             print("Computing treion map...")
@@ -461,6 +619,20 @@ class T21_maps:
 
 
     def __post_init__(self, CosmoParams, CoeffStructure, PowerSpectra):
+        """ 
+        Generates 21cm maps. 
+        
+        Parameters 
+        ---------- 
+        CosmoParams : CosmoParams class 
+        CoeffStructure : get_T21_coefficients class 
+        PowerSpectra : Power_Spectra class
+        
+        Returns 
+        ------- 
+        None 
+        """
+
         ### z and k
         _iz = z21_utilities.find_nearest_idx(CoeffStructure.zlist, self.input_z)
         self._klist = PowerSpectra.klist_PS
@@ -516,6 +688,16 @@ class T21_maps:
     
 
     def generate_density_pb(self):
+        """ 
+        Generates density fields using PowerBox. 
+        
+        Returns 
+        ------- 
+        density : array 
+            Density field at each redshift. 
+        pbs : list 
+            PowerBox objects that generate the density fields. 
+        """
         density = np.zeros((len(self.input_z),self.ncells,self.ncells,self.ncells))
         pbs = []
         for iz, z in enumerate(self.input_z):
@@ -532,6 +714,19 @@ class T21_maps:
         return density, pbs
 
     def generate_T21_lin(self, pbs):
+        """ 
+        Generates the linear 21cm temperature field. 
+        
+        Parameters 
+        ---------- 
+        pbs : list 
+            PowerBox objects. 
+            
+        Returns 
+        ------- 
+        T21_lin : array 
+            Linear 21cm brightness temperature field at each redshift. 
+        """
         T21_lin = np.zeros((len(self.input_z),self.ncells,self.ncells,self.ncells))
         for iz, z in enumerate(self.input_z):
             pb = pbs[iz]
@@ -544,6 +739,14 @@ class T21_maps:
         return T21_lin
 
     def generate_T21_NL(self):
+        """ 
+        Generates the nonlinear correction to the 21cm temperature field. 
+        
+        Returns 
+        ------- 
+        T21_NL : array 
+            Nonlinear 21cm brightness temperature correction field at each redshift. 
+        """
         T21_NL = np.zeros((len(self.input_z),self.ncells,self.ncells,self.ncells))
         for iz, z in enumerate(self.input_z):
             excesspower21 = (self._Dsq_T21[iz]-self._Dsq_T21_lin[iz])/self._k3over2pi2
