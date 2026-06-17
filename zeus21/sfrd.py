@@ -1,6 +1,6 @@
 """
 
-Bulk of the Zeus21 calculation. Compute sSFRD from cosmology.
+Bulk of the Zeus21 calculation. Compute SFRD from cosmology.
 
 Author: Julian B. Muñoz
 UT Austin and Harvard CfA - January 2023
@@ -10,7 +10,7 @@ JHU - July 2024
 
 Edited by Sarah Libanore, Emilie Thelie, Hector Afonso G. Cruz, Alessandra Venditti, Emily Bregou
 UT Austin - April 2026 
-BGU - June 2026
+BGU and UT Austin - June 2026
 """
 
 from . import cosmology
@@ -89,21 +89,21 @@ class SFRD_class:
     SFRD_II_interp : interpolator
         Average SFRD for popII stars, interpolated over redshift.
     J_21_LW_II : interpolator
-        Lyman-Werner flux from popII stars, units of erg/s/cm^2/Hz/s,, interpolated over redshift
+        Lyman-Werner flux from popII stars, units of erg/s/cm^2/Hz/s, interpolated over redshift
     J21LW_interp_conv_avg : interpolator
         Lyman-Werner flux iteratively computed to account for popIII contribution, interpolated over redshift
     SFRD_III_cnvg_interp : : interpolator
-        Average SFRD for popIII stars, determines part-of and is affected by the LW flux; interpolated over redshift.
+        Average SFRD for popIII stars, determines part-of and is affected by the LW flux; interpolated over redshift
     J_21_LW_III : interpolator
-        Lyman-Werner flux, units of erg/s/cm^2/Hz/s from popIII stars,, interpolated over redshift
+        Lyman-Werner flux, units of erg/s/cm^2/Hz/s from popIII stars, interpolated over redshift
     SFRD_II_avg : array 
         Average SFRD for popII stars, units Msun/yr
     SFRD_III_avg : array 
         Average SFRD for popIII stars, units Msun/yr
     SFRD_avg : array 
-        Total zverage SFRD, units Msun/yr
+        Total average SFRD, units Msun/yr
     SFRDbar2D_II : matrix
-        Average SFRD for popII computed at z corresponding to each shell.
+        Average SFRD for popII computed at z corresponding to each shell
     SFRDbar2D_III : matrix
         Average SFRD for popIII computed at z corresponding to each shell
     fesctab_II : array
@@ -119,11 +119,11 @@ class SFRD_class:
     niondot_avg_III : array
         Number of ionizing photons produced by popIII computed at the redshifts of the analysis
     niondot_avg : array
-        Number of ionizing photons produce at the redshifts of the analysis
+        Number of ionizing photons produced at the redshifts of the analysis
     sigmaofRtab : matrix
         Variance of the matter field on scales associated with the shells and at the observed rerdshift 
     Matom : method
-        Minimum mass for atomic cooling halos at given redshift
+        Minimum mass for atomic-cooling halos at given redshift
     Mmol_0 : method
         Minimum mass for molecular halos without LW or VCB feedback
     Mmol_vcb : method
@@ -137,7 +137,7 @@ class SFRD_class:
     fstar_ofz : method
         Star formation efficiency generative function
     fduty : method
-        Duty cycle to damp star formation in low or high mass halos or both 
+        Duty cycle to damp star formation in low- or high-mass halos or both 
     SFE_II : method
         Star formation efficiency for popII stars
     SFE_III : method
@@ -178,29 +178,35 @@ class SFRD_class:
         Compute first and second numerical derivatives of an array wrt the other (used for SFRD and niondot wrt delta)
     """ 
 
+
+    @classmethod
+    def light_init(cls):  # Light instantialization, in case we only need to access specific class methods without initializing the full class
+        obj = cls.__new__(cls)
+        return obj
+
     def __init__(self, UserParams, CosmoParams, AstroParams, HMFinterp, z_Init = None):
 
         # if z_Init is not provided, we initialize it here. This allows us to avoid redundant computations if they were already initialized in the parent class and passed as arguments.
         if z_Init is None:
             z_Init = Z_init(UserParams=UserParams, CosmoParams=CosmoParams)  
 
-        zSFRDflat = np.geomspace(UserParams.zmin, constants.zmax_AstroBreak, 128) # extend to z = constants.zmax_AstroBreak for extrapolation purposes. Higher in z than zInit.zintegral
-        zSFRD, mArray = np.meshgrid(zSFRDflat, HMFinterp.Mhtab, indexing = 'ij', sparse = True) # create redshift and halo mass matrices, dimension (z, Mh)
+        zSFRDflat = np.geomspace(UserParams.zmin_T21, constants.zmax_AstroBreak, 128)  # extend to z = constants.zmax_AstroBreak for extrapolation purposes. Higher in z than zInit.zintegral
+        zSFRD, mArray = np.meshgrid(zSFRDflat, HMFinterp.Mhtab, indexing = 'ij', sparse = True)  # create redshift and halo mass matrices, dimension (z, Mh)
 
-        init_J21LW_interp = interpolate.interp1d(zSFRDflat, np.zeros_like(zSFRDflat), kind = 'linear', bounds_error = False, fill_value = 0,) # initialize no LW background, used to compute Mmol() function, NOT the individual Pop II and III LW background
+        init_J21LW_interp = interpolate.interp1d(zSFRDflat, np.zeros_like(zSFRDflat), kind = 'linear', bounds_error = False, fill_value = 0,)  # initialize no LW background, used to compute Mmol() function, NOT the individual Pop II and III LW background
 
-        SFRD_II_avg = np.trapezoid(self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zSFRD, pop=2), HMFinterp.logtabMh, axis = 1) # average SFRD 
+        SFRD_II_avg = np.trapezoid(self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zSFRD, pop=2), HMFinterp.logtabMh, axis = 1)  # average SFRD 
         self.SFRD_II_interp = interpolate.interp1d(zSFRDflat, SFRD_II_avg, kind = 'cubic', bounds_error = False, fill_value = 0,) 
 
-        J21LW_II = self.J_LW_21(CosmoParams, AstroParams, SFRD_II_avg, zSFRDflat, pop=2) # LW specific intensity from popII
-        self.J_21_LW_II = interpolate.interp1d(zSFRDflat, J21LW_II, kind = 'cubic')(z_Init.zintegral) 
+        J21LW_II = self.J_LW_21(CosmoParams, AstroParams, SFRD_II_avg, zSFRDflat, pop=2)  # LW specific intensity from popII
+        self.J_21_LW_II = interpolate.interp1d(zSFRDflat, J21LW_II, kind = 'cubic')(z_Init.zintegral)  # TODO: fix inconsistent naming conventions for J21LW 
 
         if AstroParams.USE_POPIII:
 
             # initialize popIII SFRD, update iteratively to account for LW feedback
             SFRD_III_Iter_Matrix = [np.trapezoid(self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zSFRD, pop=3, vCB=CosmoParams.vcb_avg, J21LW_interp=init_J21LW_interp), HMFinterp.logtabMh, axis = 1)] 
 
-            errorTolerance = 0.001 # 0.1 percent accuracy
+            errorTolerance = 0.001 # 0.1 percent accuracy --> TODO: allow to change tolerance? E.g. input of init function with default 0.001
 
             recur_iterate_Flag = True
             while recur_iterate_Flag:
@@ -208,7 +214,7 @@ class SFRD_class:
                 J21LW_III_iter = self.J_LW_21(CosmoParams, AstroParams, SFRD_III_Iter_Matrix[-1], zSFRDflat, pop=3)
                 loop_J21LW_interp = interpolate.interp1d(zSFRDflat, J21LW_II + J21LW_III_iter, kind = 'linear', fill_value = 0, bounds_error = False)
 
-                SFRD_III_avg_n = np.trapezoid(self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zSFRD, pop=3, vCB=CosmoParams.vcb_avg, J21LW_interp= loop_J21LW_interp), HMFinterp.logtabMh, axis = 1) # correct through LW feedback
+                SFRD_III_avg_n = np.trapezoid(self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zSFRD, pop=3, vCB=CosmoParams.vcb_avg, J21LW_interp= loop_J21LW_interp), HMFinterp.logtabMh, axis = 1)  # correct through LW feedback
                 SFRD_III_Iter_Matrix.append(SFRD_III_avg_n)
 
                 if max(SFRD_III_Iter_Matrix[-1]/SFRD_III_Iter_Matrix[-2]) < 1.0 + errorTolerance and min(SFRD_III_Iter_Matrix[-1]/SFRD_III_Iter_Matrix[-2]) > 1.0 - errorTolerance:
@@ -216,8 +222,8 @@ class SFRD_class:
 
             self.J21LW_interp_conv_avg = loop_J21LW_interp
 
-            self.SFRD_III_cnvg_interp = interpolate.interp1d(zSFRDflat, SFRD_III_Iter_Matrix[-1], kind = 'cubic', bounds_error = False, fill_value = 0) # SFRD for popIII
-            self.J_21_LW_III = interpolate.interp1d(zSFRDflat, J21LW_III_iter, kind = 'cubic')(z_Init.zintegral) # LW flux from popIIII
+            self.SFRD_III_cnvg_interp = interpolate.interp1d(zSFRDflat, SFRD_III_Iter_Matrix[-1], kind = 'cubic', bounds_error = False, fill_value = 0)  # SFRD for popIII
+            self.J_21_LW_III = interpolate.interp1d(zSFRDflat, J21LW_III_iter, kind = 'cubic')(z_Init.zintegral)  # LW flux from popIIII
 
         else:
             self.SFRD_III_cnvg_interp = interpolate.interp1d(zSFRDflat, np.zeros_like(zSFRDflat), kind = 'cubic', bounds_error = False, fill_value = 0)
@@ -226,18 +232,18 @@ class SFRD_class:
         self.SFRD_III_avg = self.SFRD_III_cnvg_interp(z_Init.zintegral)
         self.SFRD_avg = self.SFRD_II_avg + self.SFRD_III_avg
 
-        self.SFRDbar2D_II = self.SFRD_II_interp(np.nan_to_num(z_Init.zGreaterMatrix, nan = 100)) # dimension (z,R)
-        self.SFRDbar2D_III = self.SFRD_III_cnvg_interp(np.nan_to_num(z_Init.zGreaterMatrix, nan = 100)) # dimension (z,R)
+        self.SFRDbar2D_II = self.SFRD_II_interp(np.nan_to_num(z_Init.zGreaterMatrix, nan = 100))  # dimension (z,R)
+        self.SFRDbar2D_III = self.SFRD_III_cnvg_interp(np.nan_to_num(z_Init.zGreaterMatrix, nan = 100))  # dimension (z,R)
             
         # Reionization
-        self.fesctab_II = self.fesc_II(AstroParams, HMFinterp.Mhtab) # prepare fesc(M) table -- z independent for now 
-        self.fesctab_III = self.fesc_III(AstroParams, HMFinterp.Mhtab) #PopIII prepare fesc(M) table -- z independent for now 
+        self.fesctab_II = self.fesc_II(AstroParams, HMFinterp.Mhtab)  # prepare fesc(M) table -- z independent for now 
+        self.fesctab_III = self.fesc_III(AstroParams, HMFinterp.Mhtab)  # PopIII prepare fesc(M) table -- z independent for now 
 
         # prepare integrand to compute number of ionizing photons
         reio_integrand_II = self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zSFRD, pop=2) 
         reio_integrand_III = self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zSFRD, pop=3, vCB=CosmoParams.vcb_avg, J21LW_interp=init_J21LW_interp)
         niondot_avg_II = AstroParams.N_ion_perbaryon_II/cosmology.rho_baryon(CosmoParams,0.) * np.trapezoid(reio_integrand_II * self.fesctab_II, HMFinterp.logtabMh, axis = 1)  # number of ionizing photons produced by popII 
-        niondot_avg_III = AstroParams.N_ion_perbaryon_III/cosmology.rho_baryon(CosmoParams,0.) * np.trapezoid(reio_integrand_III * self.fesctab_III, HMFinterp.logtabMh, axis = 1) # number of ionizing photons produced by popIIII
+        niondot_avg_III = AstroParams.N_ion_perbaryon_III/cosmology.rho_baryon(CosmoParams,0.) * np.trapezoid(reio_integrand_III * self.fesctab_III, HMFinterp.logtabMh, axis = 1)  # number of ionizing photons produced by popIIII
 
         self.reio_integrand_II_interp = interpolate.interp1d(zSFRDflat, niondot_avg_II, kind = 'cubic', bounds_error = False, fill_value = 0)
         self.reio_integrand_III_interp = interpolate.interp1d(zSFRDflat, niondot_avg_III, kind = 'cubic', bounds_error = False, fill_value = 0)
@@ -255,7 +261,7 @@ class SFRD_class:
 
     def Matom(self, z):
         """
-        Compute minimum mass for atomic halos
+        Compute minimum mass for atomic-cooling halos
 
         Parameters 
         ----------
@@ -275,7 +281,7 @@ class SFRD_class:
 
     def Mmol_0(self, z):
         """
-        Compute minimum mass for molecular halos without LW or VCB feedback
+        Compute minimum mass for molecular-cooling halos without LW or VCB feedback
 
         Parameters 
         ----------
@@ -295,7 +301,7 @@ class SFRD_class:
 
     def Mmol_vcb(self, CosmoParams, AstroParams, z, vCB):
         """
-        Compute minimum mass for molecular halos without LW feedback
+        Compute minimum mass for molecular-cooling halos without LW feedback
 
         Parameters 
         ----------
@@ -354,12 +360,12 @@ class SFRD_class:
         ----------
         CosmoParams : CosmoParams class
         AstroParams : AstroParams class
-        J21LWinterp : interpolator
-            Interpolator of the LW flux, function of z 
+        J21LWinterp : interpolator or False
+            Interpolator of the LW flux, function of z. If False, no LW feedback.
         z : float
             Redshift
-        vCB : float
-            Baryon-DM relative velocity
+        vCB : float or False
+            Baryon-DM relative velocity. If False, no feedback from streaming velocitites.
 
         Returns
         ----------
@@ -367,11 +373,18 @@ class SFRD_class:
             Minimum halo mass, in Msun         
         """
 
-        mmolBase = self.Mmol_0(z)
-        vcbFeedback = pow(1 + AstroParams.A_vcb * vCB / CosmoParams.sigma_vcb, AstroParams.beta_vcb)
-        lwFeedback = 1 + AstroParams.A_LW*pow(J21LW_interp(z), AstroParams.beta_LW)
-        
-        Mmol = mmolBase * vcbFeedback * lwFeedback
+        Mmol = self.Mmol_0(z)
+
+        if vCB is not False:
+            vcbFeedback = pow(1 + AstroParams.A_vcb * vCB / CosmoParams.sigma_vcb, AstroParams.beta_vcb)
+            Mmol *= vcbFeedback
+
+        if J21LW_interp is not False:
+            lwFeedback = 1 + AstroParams.A_LW*pow(J21LW_interp(z), AstroParams.beta_LW)
+            Mmol *= lwFeedback
+
+        # TODO: added option to turn off vCB/LW feedback entirely by putting the input to False, we may consider removing duplicating functions without feedback (Mmol_0, Mmol_vcb, Mmol_LW) + option to pass None and get the CosmoParams.vcb_avg and SFRD.J21LW_interp_conv_avg within the method instead, to avoid having to deal with this externally? E.g. in compute_pop_LFbias_binned(); note that CosmoParams is note needed unless we are computing the vcb feedback, so it could be made an optional parameter as well
+        # TODO: refs for atomic/molecular-cooling mass calculation functions
 
         return Mmol
 
@@ -396,11 +409,11 @@ class SFRD_class:
             Halo mass accretion rate       
         """
 
-        if not CosmoParams.Flag_emulate_21cmfast: #GALLUMI-like
-            if AstroParams.accretion_model == "exp": #exponential accretion
+        if not CosmoParams.Flag_emulate_21cmfast:  # GALLUMI-like
+            if AstroParams.accretion_model == "exp":  # Exponential accretion
                 dMhdz = massVector * constants.ALPHA_accretion_exponential
                 
-            elif AstroParams.accretion_model == "EPS": #EPS accretion
+            elif AstroParams.accretion_model == "EPS":  # EPS accretion
                 
                 Mh2 = massVector* constants.EPSQ_accretion
                 indexMh2low = Mh2 < massVector.flatten()[0]
@@ -415,12 +428,12 @@ class SFRD_class:
                 dgrowthdz = (cosmology.growth(CosmoParams,z+dzgrow) - cosmology.growth(CosmoParams,z-dzgrow))/(2.0 * dzgrow)
                 dMhdz = - massVector * np.sqrt(2/np.pi)/np.sqrt(sigmaMh2**2 - sigmaMh**2) *dgrowthdz/growth * CosmoParams.delta_crit_ST
 
-            elif(AstroParams.accretion_model == 'RP16'): # Fitting function to Rodríguez-Puebla+16 N-body simulations (eq. 11, dynamically averaged parameters from table 2)
+            elif(AstroParams.accretion_model == 'RP16'):  # Fitting function to Rodríguez-Puebla+16 N-body simulations (eq. 11, dynamically averaged parameters from table 2)
                 a = (1+z)**-1
                 beta = 10**(2.73-(1.828*a)+(0.654*a**2))
                 alpha = 1 + (0.329*a) - (0.206*a**2)
 
-                # factors of h are accounted for to give units of M_sun/year for halo masses in units of M_sun:
+                # Factors of h are accounted for to give units of M_sun/year for halo masses in units of M_sun:
                 Mhdot = beta * (massVector/1e12)**alpha * cosmology.Hub(CosmoParams, z) / (100*CosmoParams.h_fid)
                 
             else:
@@ -430,7 +443,7 @@ class SFRD_class:
             
             Mhdot = dMhdz*cosmology.Hubinvyr(CosmoParams,z)*(1.0+z)
             
-        else: #21cmfast-like
+        else:  # 21cmfast-like
             Mhdot = massVector/AstroParams.tstar*cosmology.Hubinvyr(CosmoParams,z)
 
         return Mhdot
@@ -438,7 +451,7 @@ class SFRD_class:
 
     def fstar_ofz(self, CosmoParams, z, massVector, eps, dlog10eps, zpiv, Mc, alphastar, betastar, fstarmax):  
         """
-        Compute star formation efficiency as function of z -- changing the parameters the user can run both popII and popIII
+        Compute star formation efficiency as function of z -- by changing the parameters, the user can run both popII and popIII
 
         Parameters 
         ----------
@@ -450,7 +463,7 @@ class SFRD_class:
         eps : float
             Star formation efficiency at pivot redshift and mass
         dlog10eps : float
-            Logharitmic redshift evolution 
+            Logaritmic redshift evolution 
         zpiv : float
             Pivot reference redshift
         Mc : float
@@ -478,12 +491,12 @@ class SFRD_class:
         else:
             # GALLUMI-like 
             fstar = CosmoParams.OmegaB/CosmoParams.OmegaM * np.clip(2.0 * epsstar_ofz\
-            /(pow(massVector/Mc,- alphastar) + pow(massVector/Mc,-betastar)), 0, fstarmax)
+            /(pow(massVector/Mc,-alphastar) + pow(massVector/Mc,-betastar)), 0, fstarmax)
         
         return fstar 
         
 
-    def fduty(self, CosmoParams, AstroParams, massVector, z,  lower_cutoff=False, upper_cutoff=False, is_sharp_cutoff=False, vCB=False, J21LW_interp=False):  
+    def fduty(self, CosmoParams, AstroParams, massVector, z,  lower_cutoff=None, upper_cutoff=None, is_sharp_cutoff=False, vCB=None, J21LW_interp=None):
         """
         Compute duty fraction to damp star formation 
 
@@ -495,16 +508,16 @@ class SFRD_class:
             Halo masses
         z : float
             Redshift
-        lower_cutoff : str or bool or float 
-            Apply cutoff on low masses; if False does not apply; if str == {Mmol, Matom} computes the minimum mas; if float uses it as minimym mass 
-        upper_cutoff : str or bool or float 
-            Apply cutoff on high masses; if False does not apply; if str == {Matom} computes the minimum mas; if float uses it as minimym mass 
+        lower_cutoff : str or float or None
+            Apply cutoff at the low-mass end; if None, no cutoff; if str == "Mmol" or "Matom", cutoff at the molecular/atomic-cooling limit respectively; if float, custom cutoff at user-provided value
+        upper_cutoff : str or float or None
+            Apply cutoff at the high-mass end; if None, no cutoff; if str == "Matom", cutoff at the atomic-cooling limit; if float, custom cutoff at user-provided value 
         is_sharp_cutoff : bool
-            Use sharp cutoff 
-        vCB : bool
-            Include contribution from baryon-CDM relative velocity (popIII) or not (popII)
-        J21LW_interp : interpolator
-            Include contribution from LW feedback (popIII) or not (popII)
+            If true, apply sharp cutoff; exponential cutoff otherwise
+        vCB : float or None
+            Baryon-DM relative velocity (None by default: only matters for molecular-cooling limit computation for Pop IIIs)
+        J21LW_interp : interpolator or None
+            Interpolator of the LW flux, function of z (None by default: only matters for molecular-cooling limit computation for Pop IIIs)
 
         Returns
         ----------
@@ -512,8 +525,8 @@ class SFRD_class:
             Duty cycle 
         """
         
-        # cutoff on the low mass end 
-        if lower_cutoff:
+        # Low-mass end cutoff
+        if lower_cutoff is not None:
             if lower_cutoff == "Mmol":
                 Mlow = self.Mmol(CosmoParams, AstroParams, J21LW_interp, z, vCB)
             elif lower_cutoff == "Matom":
@@ -528,8 +541,8 @@ class SFRD_class:
         else:
             fduty_low = 1.
 
-        # cutoff on the high mass end 
-        if upper_cutoff:
+        # High-mass end cutoff
+        if upper_cutoff is not None:
             if upper_cutoff == "Matom":
                 Mup = self.Matom(z)
             else:
@@ -571,9 +584,9 @@ class SFRD_class:
                                 AstroParams.Mc, AstroParams.alphastar, AstroParams.betastar, AstroParams.fstarmax)
 
         if not AstroParams.FLAG_MTURN_FIXED:
-            fduty = self.fduty(CosmoParams, AstroParams, massVector, z, lower_cutoff="Matom", upper_cutoff=False, is_sharp_cutoff=AstroParams.FLAG_MTURN_SHARP)
+            fduty = self.fduty(CosmoParams, AstroParams, massVector, z, lower_cutoff="Matom", upper_cutoff=None, is_sharp_cutoff=AstroParams.FLAG_MTURN_SHARP)
         else:
-            fduty = self.fduty(CosmoParams, AstroParams, massVector, z, lower_cutoff=AstroParams.Mturn_fixed, upper_cutoff=False, is_sharp_cutoff=AstroParams.FLAG_MTURN_SHARP)
+            fduty = self.fduty(CosmoParams, AstroParams, massVector, z, lower_cutoff=AstroParams.Mturn_fixed, upper_cutoff=None, is_sharp_cutoff=AstroParams.FLAG_MTURN_SHARP)
 
         SFE = fstarM * fduty
 
@@ -582,7 +595,11 @@ class SFRD_class:
 
     def SFE_III(self, CosmoParams, AstroParams, massVector, z, vCB, J21LW_interp):  
         """
-        Star formation efficiency for popIII stars; includes both mini halos (default) and additional atomic cooling halo component
+        Star formation efficiency for popIII stars.
+
+        By default, this computes a single main Pop III component with a low-mass cutoff at the molecular-cooling limit and a user-controlled high-mass cutoff Mup_III. Setting Mup_III="Matom" (default) in the AstroParams recovers standard minihalo-only behavior, with high-mass cutoff at the atomic-cooling limit.
+
+        If AstroParams.DETACH_III_ACH is True, main component is forced to stop at the atomic-cooling limit and a detached atomic-cooling-halo component with independent parameters is added         between Matom and Mup_III.
 
         Parameters 
         ----------
@@ -592,10 +609,10 @@ class SFRD_class:
             Halo masses
         z : float
             Redshift
-        vCB : bool
-            Include contribution from baryon-CDM relative velocity (popIII) or not (popII)
-        J21LW_interp : bool
-            Include contribution from LW feedback (popIII) or not (popII)
+        vCB : float or None
+            Baryon-DM relative velocity
+        J21LW_interp : interpolator or None
+            Interpolator of the LW flux, function of z
 
         Returns
         ----------
@@ -603,52 +620,38 @@ class SFRD_class:
             Star formation efficiency
         """
         
-        # default mini halo population 
-        eps = AstroParams.epsstar_III  # TODO: fstar_III to epssstar_III?
-        dlog10eps = AstroParams.dlog10epsstardz_III
-        zpiv = AstroParams._zpivot_III
-        Mc = AstroParams.Mc_III
-        alphastar = AstroParams.alphastar_III  # TODO: decide if we want to keep (same for ACH component)
-        betastar = AstroParams.betastar_III
+        # Main component 
         fstarM = self.fstar_ofz(CosmoParams, z, massVector, 
-                                eps, dlog10eps, zpiv,
-                                Mc, alphastar, betastar, AstroParams.fstarmax)
-        fduty = self.fduty(CosmoParams, AstroParams, massVector, z,  lower_cutoff="Mmol", upper_cutoff="Matom", is_sharp_cutoff=False,  vCB=vCB, J21LW_interp=J21LW_interp)  # TODO: Do we want to allow the cut-off to not be sharp? 
+                                AstroParams.epsstar_III, AstroParams.dlog10epsstardz_III, AstroParams._zpivot_III,  
+                                AstroParams.Mc_III, AstroParams.alphastar_III, AstroParams.betastar_III, AstroParams.fstarmax)
+        detach_ACH = AstroParams.DETACH_III_ACH
+        if detach_ACH:
+            # If detached ACH component, high-mass cutoff of the main component forced at the ACH limit
+            Mup_main = "Matom"
+        else:
+            # Main component cut at the user-defined high-mass cutoff - note that this has to be put to "Matom" in order to recover standard behaviour, with main component limited to the MC minihalo regime
+            Mup_main = AstroParams.Mup_III
+        fduty = self.fduty(CosmoParams, AstroParams, massVector, z,  lower_cutoff="Mmol", upper_cutoff=Mup_main, is_sharp_cutoff=False,  vCB=vCB, J21LW_interp=J21LW_interp)  # TODO: Do we want to allow the cut-off to be sharp?
         SFE = fstarM * fduty
 
-        if AstroParams.USE_POPIII_ACH:
-            # atomic cooling halo component from ??? TODO: add reference
-            if not AstroParams.DETACH_III_ACH:
-                eps_ACH = eps  # TODO: check consistency with MC component (defined at pivot mass?)
-                dlog10eps_ACH = dlog10eps
-                zpiv_ACH = zpiv
-                Mc_ACH = Mc
-                alphastar_ACH = alphastar
-                betastar_ACH = betastar
+        # Detached ACH component with custom parameters, added to the MC minihalo component
+        # TODO: for now, the case with detached Pop III ACH component is isolated here, but we could integrate it in the general case below by implementing a separate poulation type, e.g. 3.II? This could be extended to other population types e.g. different morphological types etc...
+        if detach_ACH:  
+            if AstroParams.Mup_III == "Matom":
+                print("WARNING: AstroParams.DETACH_III_ACH = True but AstroParams.Mup_III == 'Matom'. Ignoring atomic-cooling Pop III component")  # In this case, both low- and high-mass cutoff for the ACH component would be at the ACH limit, so this component is ignored
             else:
-                eps_ACH = AstroParams.epssstar_III_ACH
-                dlog10eps_ACH = AstroParams.dlog10epsstardz_III_ACH
-                zpiv_ACH = AstroParams._zpivot_III_ACH
-                Mc_ACH = AstroParams.Mc_III_ACH
-                alphastar_ACH = AstroParams.alphastar_III_ACH
-                betastar_ACH = AstroParams.betastar_III_ACH       
-                 
-            fstarM_ACH = self.fstar_ofz(CosmoParams, z, massVector,
-                                        eps_ACH, dlog10eps_ACH, zpiv_ACH,
-                                        Mc_ACH, alphastar_ACH, betastar_ACH, AstroParams.fstarmax)
-            fduty_ACH = self.fduty(CosmoParams, AstroParams, massVector, z,  lower_cutoff="Matom", upper_cutoff=AstroParams.Mup_III, is_sharp_cutoff=False)
-            SFE_ACH = fstarM_ACH * fduty_ACH
-        else:
-            SFE_ACH = np.zeros_like(SFE)
+                fstarM_ACH = self.fstar_ofz(CosmoParams, z, massVector,
+                                            AstroParams.epsstar_III_ACH, AstroParams.dlog10epsstardz_III_ACH, AstroParams._zpivot_III_ACH,
+                                            AstroParams.Mc_III_ACH, AstroParams.alphastar_III_ACH, AstroParams.betastar_III_ACH, AstroParams.fstarmax)
+                fduty_ACH = self.fduty(CosmoParams, AstroParams, massVector, z,  lower_cutoff="Matom", upper_cutoff=AstroParams.Mup_III, is_sharp_cutoff=False)
+                SFE += fstarM_ACH * fduty_ACH
 
-        SFE_tot = SFE + SFE_ACH
-
-        return SFE_tot
+        return SFE
 
 
-    def SFE(self, CosmoParams, AstroParams, massVector, z, pop, vCB = False, J21LW_interp = False):  
+    def SFE(self, CosmoParams, AstroParams, massVector, z, pop,  vCB=None, J21LW_interp=None):  
         """
-        Total tar formation efficiency 
+        Total star formation efficiency 
 
         Parameters 
         ----------
@@ -660,30 +663,30 @@ class SFRD_class:
             Redshift
         pop : int
             Which population (2 for popII or 3 for popIII)
-        vCB : bool
-            Include contribution from baryon-CDM relative velocity (popIII) or not (popII)
-        J21LW_interp : bool
-            Include contribution from LW feedback (popIII) or not (popII)
+        vCB : float or None
+            Baryon-DM relative velocity (None by default: only matters for molecular-cooling limit computation for Pop IIIs)
+        J21LW_interp : interpolator or None
+            Interpolator of the LW flux, function of z (None by default: only matters for molecular-cooling limit computation for Pop IIIs)
 
         Returns
         ----------
         SFE : array 
             Star formation efficiency for the input population 
-        """
-        
+        """        
 
-        if (pop == 3 and not AstroParams.USE_POPIII):
-            return 0  # skip whole routine if NOT using PopIII stars
+        if pop == 3 and not AstroParams.USE_POPIII:
+            return 0  # Skip whole routine if NOT using popIII stars --> TODO: here we may want to raise a ValueError instead...
         
-        if pop == 2:
-            SFE = self.SFE_II(CosmoParams, AstroParams, massVector, z)
-        else:
+        if pop == 3 and AstroParams.USE_POPIII:
             SFE = self.SFE_III(CosmoParams, AstroParams, massVector, z, vCB, J21LW_interp)
+        elif pop == 2:
+            SFE = self.SFE_II(CosmoParams, AstroParams, massVector, z)
+            
 
         return SFE 
     
 
-    def SFR(self, CosmoParams, AstroParams, HMFinterp, massVector, z, pop, vCB = False, J21LW_interp = False):
+    def SFR(self, CosmoParams, AstroParams, HMFinterp, massVector, z, pop, vCB=None, J21LW_interp=None):
         """
         Star formation rate in Msun/yr for given population 
 
@@ -698,10 +701,10 @@ class SFRD_class:
             Redshift
         pop : int
             Which population (2 for popII or 3 for popIII)
-        vCB : bool
-            Include contribution from baryon-CDM relative velocity (popIII) or not (popII)
-        J21LW_interp : bool
-            Include contribution from LW feedback (popIII) or not (popII)
+        vCB : float or None
+            Baryon-DM relative velocity (None by default: only matters for molecular-cooling limit computation for Pop IIIs)
+        J21LW_interp : interpolator or None
+            Interpolator of the LW flux, function of z (None by default: only matters for molecular-cooling limit computation for Pop IIIs)
 
         Returns
         ----------
@@ -714,7 +717,7 @@ class SFRD_class:
         return SFR
 
 
-    def SFRD_integrand(self, CosmoParams, AstroParams, HMFinterp, massVector, z, pop, vCB = False, J21LW_interp = False):
+    def SFRD_integrand(self, CosmoParams, AstroParams, HMFinterp, massVector, z, pop, vCB=None, J21LW_interp=None):
         """
         Integrand for the star formation rate density for a given population 
 
@@ -729,10 +732,10 @@ class SFRD_class:
             Redshift
         pop : int
             Which population (2 for popII or 3 for popIII)
-        vCB : bool
-            Include contribution from baryon-CDM relative velocity (popIII) or not (popII)
-        J21LW_interp : bool
-            Include contribution from LW feedback (popIII) or not (popII)
+        vCB : float or None
+            Baryon-DM relative velocity (None by default: only matters for molecular-cooling limit computation for Pop IIIs)
+        J21LW_interp : interpolator or None
+            Interpolator of the LW flux, function of z (None by default: only matters for molecular-cooling limit computation for Pop IIIs)
 
         Returns
         ----------

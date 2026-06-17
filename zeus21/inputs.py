@@ -11,9 +11,8 @@ JHU - July 2024
 Edited by Emily Bregou
 UT Austin - March 2026
 
-
-Edited by Hector Afonso G. Cruz
-NYU/CCA - June 2026
+Edited by Hector Afonso G. Cruz and Alessandra Venditti
+UT Austin and NYU/CCA - June 2026
 """
 
 from . import constants
@@ -564,8 +563,8 @@ class Astro_Parameters:
             Power law index of the Pop III star formation efficiency at high masses. Default 0.0.
         Mc_III: float
             Mass at which the Pop III star formation efficiency cuts. Default 1e7.
-        USE_POPIII_ACH: bool
-            Whether to use an atomic cooling halo (ACH) component for Pop III. Default is False.
+        Mup_III: str, float, None
+            High-mass cutoff for Pop III star formation efficiency. Default "Matom" for Pop III star formation confined to molecular-cooling minihalos; also accepts custom cutoff value or None for no cutoff
         DETACH_III_ACH: bool
             Whether to have a separate set of parameters for star formation efficiency for the (ACH) component for Pop III. Default is False.
         epsstar_III_ACH: float
@@ -700,17 +699,17 @@ class Astro_Parameters:
     _zpivot: float = _field(init=False) # Redshift at which the eps and dlogeps/dz are evaluated. Set by zeus21 to 8.0.
     fstarmax: float = _field(init=False)
 
-    # SFR(Mh) parameters - popIII
+    # SFR(Mh) parameters - popIII main component --> by default, this only includes the molecular-cooling minihalo component extended up to the atomic-cooling limit, but it can be extended to a custom high-mass cutoff value by changing the value of Mup_III
     epsstar_III: float = 10**(-2.5)
     dlog10epsstardz_III: float = 0.0
     alphastar_III: float = 0.
     betastar_III: float = 0.
     Mc_III: float = 1e7
+    Mup_III: str | float | None = "Matom"
+    Mup3TEMP: float = 10**8.387007493446207#HAC TEMPORARY: Delete!!! Only for BAO/VAO comparison
     _zpivot_III: float = _field(init=False) # Redshift at which the eps and dlogeps/dz are evaluated for Pop III. Set by zeus21 to 8.0.
 
-    # SFR(Mh) parameters - popIII Atomic Cooling Component
-#    Mup3TEMP: float = 10**8.387007493446207#HAC TEMPORARY: Delete!!! Only for BAO/VAO comparison
-    USE_POPIII_ACH: bool = False
+    # SFR(Mh) parameters - popIII deatched atomic-cooling component
     DETACH_III_ACH: bool = False
     epsstar_III_ACH: float = 0.
     dlog10epsstardz_III_ACH: float = 0.0
@@ -795,7 +794,6 @@ class Astro_Parameters:
         schema = {
             "accretion_model": (str, {"EPS", "exp"}),
             "USE_POPIII": (bool, None),
-            "USE_POPIII_ACH": (bool, None),
             "DETACH_III_ACH": (bool, None),
             "USE_LW_FEEDBACK": (bool, None),
             "quadratic_SFRD_lognormal": (bool, None),
@@ -895,29 +893,59 @@ class LF_Parameters:
         zcenter: float
             Redshift bin center at which to compute the luminosity functions. Default is 6.0.
         zwidth:  float
-            Redshift bin width at which to compute the luminosity functions. Default is 0.5.
+            Redshift bin width at which to compute the luminosity functions. Default is 0.5
+        RETURNLF: bool
+            Whether to compute LFs. Default is True.
+        RETURNBIAS: bool
+            Whether to compute bias. Default is False.
+        SKIP_POPII : bool
+            If True, skip the Pop II component. Default is False.
+        SKIP_POPIII : bool
+            If True, skip the Pop III component. Default is True.
+        SKIP_TOT : bool
+            If True, skip the summed component. Default is False.
+        FLAG_COMPUTE_UVLF: bool
+            Whether to compute the UV LF/bias. Default is True.
         MUVcenters: np.ndarray | float
             M_UV bin centers at which to compute the luminosity functions. Default is np.linspace(-23,-14,100).
         MUVwidths: np.ndarray | float
             M_UV bin width at which to compute the luminosity functions. Default is 0.5.
-        FLAG_RENORMALIZE_LUV
-            Whether to renormalize the lognormal LUV with sigmaUV to recover <LUV> or otherwise <MUV>. Default is False (recommended).
+        FLAG_RENORMALIZE_LUV 
+            Whether to renormalize the lognormal LUV with sigmaUV to recover <LUV> or otherwise <MUV>. Default is False (recommended). 
+        _kappaUV : float = 1.15e-28.
+            SFR-to-UV conversion factor in Msun/yr per erg/s/Hz.
         sigmaUV: float
             Stochasticity (gaussian rms) in the halo-galaxy connection P(MUV | Mh). Default is 0.5.
+        UV_boost_III : float
+            Pop III main-component UV conversion factor relative to Pop II. Default is 1.
+        _kappaUV_III : float = kappaUV/UV_boost_III.
+            SFR-to-UV conversion factor in Msun/yr per erg/s/Hz for Pop III main component.
+        sigmaUV_III : float
+            MUV scatter for the Pop III main component. Default is 0.5.
+        DUST_FLAG_III: bool
+            Whether to include dust attenuation to the LF calculations for Pop III main component. Default is False.
+        UV_boost_III_ACH : float
+            Pop III detached atomic-cooling-halo UV conversion factor relative to Pop II. Default is 1.
+        _kappaUV_III_ACH : float = kappaUV/UV_boost_III_ACH.
+            SFR-to-UV conversion factor in Msun/yr per erg/s/Hz for Pop III ACH component.
+        sigmaUV_III_ACH : float
+            MUV scatter for the detached Pop III ACH component. Default is 0.5.
+        DUST_FLAG_III_ACH: bool
+            Whether to include dust attenuation to the LF calculations for Pop III ACH component. Default is False.
+        FLAG_COMPUTE_HaLF: bool
+            Whether to compute the Ha LF/bias. Default is False.
         log10LHacenters: np.ndarray | float
             Ha bin centers at which to compute the luminosity functions, given in log10. Default is np.linspace(38,45,10).
         log10LHawidths: np.ndarray | float
             Ha bin width at which to compute the luminosity functions, given in log10. Default is 0.5.
-        FLAG_COMPUTE_UVLF: bool
-            Whether to compute the UV LF. Default is True.
-        FLAG_COMPUTE_HaLF: bool = False
-            Whether to compute the Ha LF. Default is True.
         DUST_FLAG: bool
             Whether to include dust attenuation to the LF calculations. Default is True.
         DUST_model: str
             Which dust model to use. Default is "Bouwens13". Can also be "Zhao24" (https://arxiv.org/pdf/2401.07893.pdf, table 1).
         HIGH_Z_DUST: bool
-            Whether to do dust at higher z than 0 or set to 0. Fix at beta(z=8) result if so. Default is True.
+            Whether to do dust at higher z than 0 or set to 0. Fix at beta(z=_zmaxdata) result if so. Default is True.  
+        _zmaxdata : float
+            Maximum calibration redshift for the dust model. Default is 8.0.
         C0dust: float
             Calibration parameter for the dust correction for UVLF. Default is 4.43 (following Meurer+99). Input 4.54 for Overzier+01.
         C1dust: float
@@ -929,17 +957,36 @@ class LF_Parameters:
     zcenter: float = 6.
     zwidth:  float = 0.5
 
+    ### Flags for computing LFs and bias for available populations
+    RETURNLF: bool = True
+    RETURNBIAS: bool = False
+    SKIP_POPII: bool = False
+    SKIP_POPIII: bool = True
+    SKIP_TOT: bool = False
+
+    ### General UVLF parameters
+    FLAG_COMPUTE_UVLF: bool = True
     MUVcenters: np.ndarray | float = _field(default_factory=lambda: np.linspace(-23,-14,100))
     MUVwidths: np.ndarray | float = 0.5
+    FLAG_RENORMALIZE_LUV: bool = False  # Whether to renormalize the lognormal LUV with sigmaUV to recover <LUV> or otherwise <MUV>. Recommend False.
+    _kappaUV: float = _field(init=False)  # in SFR/LUV. Set by zeus21 to the value from Madau+Dickinson14, fully degenerate with epsilon
+    sigmaUV: float = 0.5 
 
-    FLAG_RENORMALIZE_LUV = False #whether to renormalize the lognormal LUV with sigmaUV to recover <LUV> or otherwise <MUV>. Recommend False.
+    ### PopIII UVLF parameters (main component)
+    UV_boost_III: float = 1.
+    _kappaUV_III: float = _field(init=False) # in SFR/LUV for PopIII.  Set by zeus21 to be a factor UV_boost_III times more efficient than PopII.  
+    sigmaUV_III: float = 0.5
+    DUST_FLAG_III: bool = False
 
-    sigmaUV: float = 0.5
+    ### PopIII UVLF parameters (ACH component)
+    UV_boost_III_ACH: float = 1.
+    _kappaUV_III_ACH: float = _field(init=False)  # in SFR/LUV for PopIII.  Set by zeus21 to be a factor UV_boost_III_ACH times more efficient than PopII.  
+    sigmaUV_III_ACH: float = 0.5
+    DUST_FLAG_III_ACH: bool = False
 
+    ### Halpha LF parameters
     log10LHacenters: np.ndarray | float = _field(default_factory=lambda: np.linspace(38,45,10))
     log10LHawidths: np.ndarray | float = 0.5
-    
-    FLAG_COMPUTE_UVLF: bool = True
     FLAG_COMPUTE_HaLF: bool = False
 
     ### Dust parameters for UVLFs
@@ -949,17 +996,16 @@ class LF_Parameters:
     _zmaxdata: float = 8.0
     C0dust: float = 4.43
     C1dust: float = 1.99 #4.43, 1.99 is Meurer99; 4.54, 2.07 is Overzier01
-    _kappaUV: float = _field(init=False) # in SFR/LUV. Set by zeus21 to the value from Madau+Dickinson14, fully degenerate with epsilon
-    _kappaUV_III: float = _field(init=False) # in SFR/LUV for PopIII.  Set by zeus21 to the value from Madau+Dickinson14, fully degenerate with epsilon. Assume X more efficient than PopII.
-
     sigma_times_AUV_dust: float = 0.
 
     def __post_init__(self):
         schema = {
-            "DUST_FLAG": (bool, None),
-            "FLAG_RENORMALIZE_LUV": (bool, None),
+            "RETURNLF": (bool, None),
+            "RETURNBIAS": (bool, None),
             "FLAG_COMPUTE_UVLF": (bool, None),
             "FLAG_COMPUTE_HaLF": (bool, None),
+            "FLAG_RENORMALIZE_LUV": (bool, None),
+            "DUST_FLAG": (bool, None),
             "HIGH_Z_DUST": (bool, None),
             "DUST_model": (str, {"Bouwens13", "Zhao24"}),
         }
@@ -1004,9 +1050,10 @@ class LF_Parameters:
                 f"log10Hawidth shape {self.log10LHawidths.shape} does not match log10Hacenter shape {self.log10LHacenters.shape}"
             )
 
-        ### Dust parameters for UVLFs
-        self._kappaUV = 1.15e-28 #SFR/LUV, value from Madau+Dickinson14, fully degenerate with epsilon
-        self._kappaUV_III = self._kappaUV #SFR/LUV for PopIII. Assume X more efficient than PopII
+        ### Parameters for SFR-to-LUV conversion
+        self._kappaUV = 1.15e-28  # SFR/LUV, value from Madau+Dickinson14, fully degenerate with epsilon
+        self._kappaUV_III = self._kappaUV / self.UV_boost_III  # SFR/LUV for PopIII main component
+        self._kappaUV_III_ACH = self._kappaUV / self.UV_boost_III_ACH  # SFR/LUV for PopIII ACH component
 
 
 def validate_fields(obj, schema: dict):
