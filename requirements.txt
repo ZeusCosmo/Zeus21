@@ -9,3 +9,4 @@ pyfftw
 sphinx
 myst_parser
 tqdm
+powerbox
