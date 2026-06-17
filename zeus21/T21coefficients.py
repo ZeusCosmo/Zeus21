@@ -609,10 +609,10 @@ class get_T21_coefficients:
 
         return tau_reio
 
-    #Kept for reference purposes. Does not correct x_alpha as a function of Ts iteratively, but some old works don't either so this allows for comparison. Only used if FLAG_WF_ITERATIVE == False
+
     def Salpha_exp(self, z, T, xe):
         """
-        Hirata2006 correction to the LyA flux (Eq 55 in astro-ph/0608032)
+        Hirata2006 correction to the LyA flux (Eq 55 in astro-ph/0608032). This function is used to initialize the xalpha computation, but then overwritten. Only used if FLAG_WF_ITERATIVE == False
 
         Parameters
         ----------
