@@ -601,12 +601,14 @@ class T21_maps:
     input_boxlength: float = _field(default=300.)
     ncells: int = _field(default=300)
     seed: int = _field(default=1234)
+    input_Resolution: float = _field(default=0.5)
 
     # boxes
     density: np.ndarray = _field(init=False)
     T21_lin: np.ndarray = _field(init=False)
     T21_NL: np.ndarray = _field(init=False)
     T21: np.ndarray = _field(init=False)
+    T21_smooth: np.ndarray = _field(init=False)
 
     # other attributes
     _klist: np.ndarray = _field(init=False)
@@ -685,6 +687,11 @@ class T21_maps:
         
         self.T21[np.isnan(self.T21)] = 0.
 
+        Resolution = max(self.input_Resolution, self.input_boxlength/self.ncells)
+
+        self.xHI_smooth = z21_utilities.smooth_box((1. - self.ReioMaps.ion_field_partial_allz), Resolution, self.input_boxlength, self.ncells)
+
+        self.T21_smooth = z21_utilities.smooth_box(self.T21, Resolution, self.input_boxlength, self.ncells)
     
 
     def generate_density_pb(self):

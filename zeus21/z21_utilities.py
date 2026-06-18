@@ -444,3 +444,35 @@ def get_list_PS(CosmoParams, xi_list, zlisttoconvert):
         _Pk_list.append(_Pkzp)
 
     return np.array(_Pk_list)
+
+
+def smooth_box(box, Resolution, input_boxlength, ncells):
+    """
+    Smooth box 
+    
+    Parameters
+    ----------
+    box : matrix
+        Box 
+    Resolution : float
+        Resolution over which you want to smooth 
+    input_boxlength : int
+        Box size
+    ncells : int
+        Number of cells per side
+
+    Returns
+    ----------
+    box_smooth : matrix
+        Smoothed box
+    """
+
+    box_fft = np.fft.fftn(box)
+
+    klistfftx = np.fft.fftfreq(box.shape[0],input_boxlength/ncells)*2*np.pi
+
+    klist3Dfft = np.sqrt(np.sum(np.meshgrid(klistfftx**2, klistfftx**2, klistfftx**2, indexing='ij'), axis=0))
+
+    box_smooth = np.array(tophat_smooth(Resolution, klist3Dfft, box_fft))
+    
+    return box_smooth
