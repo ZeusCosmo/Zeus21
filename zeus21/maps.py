@@ -689,13 +689,14 @@ class T21_maps:
                 else:
                     self.xHI = (1. - self.ReioMaps.ion_field_allz)
         
-        self.T21 *= self.xHI
+            self.T21 *= self.xHI
 
         self.T21[np.isnan(self.T21)] = 0.
 
         if self.smooth_box:
             Resolution = max(self.input_Resolution, self.input_boxlength/self.ncells)
-            self.xHI_smooth = z21_utilities.smooth_box(self.xHI, Resolution, self.input_boxlength, self.ncells)
+            if self.USE_xHII_MAPS:
+                self.xHI_smooth = z21_utilities.smooth_box(self.xHI, Resolution, self.input_boxlength, self.ncells)
             self.T21_smooth = z21_utilities.smooth_box(self.T21[0], Resolution, self.input_boxlength, self.ncells)
     
 
