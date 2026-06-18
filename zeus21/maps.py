@@ -20,6 +20,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from tqdm import trange
 import time
 from dataclasses import dataclass, field as _field, InitVar
+import copy 
 
 
 @dataclass(kw_only=True)
@@ -690,9 +691,9 @@ class T21_maps:
 
         Resolution = max(self.input_Resolution, self.input_boxlength/self.ncells)
 
-        self.xHI_smooth = z21_utilities.smooth_box((1. - self.ReioMaps.ion_field_partial_allz), Resolution, self.input_boxlength, self.ncells)
+        self.xHI_smooth = z21_utilities.smooth_box(copy.copy(1. - self.ReioMaps.ion_field_partial_allz), Resolution, self.input_boxlength, self.ncells)
 
-        self.T21_smooth = z21_utilities.smooth_box(self.T21, Resolution, self.input_boxlength, self.ncells)
+        self.T21_smooth = z21_utilities.smooth_box(copy.copy(self.T21), Resolution, self.input_boxlength, self.ncells)
     
 
     def generate_density_pb(self):
