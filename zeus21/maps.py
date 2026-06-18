@@ -608,6 +608,7 @@ class T21_maps:
     T21_lin: np.ndarray = _field(init=False)
     T21_NL: np.ndarray = _field(init=False)
     T21: np.ndarray = _field(init=False)
+    xHI_smooth: np.ndarray = _field(init=False)
     T21_smooth: np.ndarray = _field(init=False)
 
     # other attributes
