@@ -606,9 +606,11 @@ class T21_maps:
 
     # boxes
     density: np.ndarray = _field(init=False)
+    xHI: np.ndarray = _field(init=False)
     T21_lin: np.ndarray = _field(init=False)
     T21_NL: np.ndarray = _field(init=False)
     T21: np.ndarray = _field(init=False)
+    smooth_box: bool = _field(default=False)
     xHI_smooth: np.ndarray = _field(init=False)
     T21_smooth: np.ndarray = _field(init=False)
 
@@ -680,20 +682,21 @@ class T21_maps:
 
             ### include ionization
             if self.ReioMaps_config.COMPUTE_PARTIAL_AND_MASSWEIGHTED:
-                    self.T21 = self.T21 * (1. - self.ReioMaps.ion_field_massweighted_allz)
+                   self.xHI = (1. - self.ReioMaps.ion_field_massweighted_allz)
             else:
                 if self.ReioMaps_config.COMPUTE_PARTIAL_IONIZATIONS:
-                    self.T21 = self.T21 * (1. - self.ReioMaps.ion_field_partial_allz)
+                    self.xHI = (1. - self.ReioMaps.ion_field_partial_allz)
                 else:
-                    self.T21 = self.T21 * (1. - self.ReioMaps.ion_field_allz)
+                    self.xHI = (1. - self.ReioMaps.ion_field_allz)
         
+        self.T21 *= self.xHI
+
         self.T21[np.isnan(self.T21)] = 0.
 
-        Resolution = max(self.input_Resolution, self.input_boxlength/self.ncells)
-
-        self.xHI_smooth = z21_utilities.smooth_box(copy.copy(1. - self.ReioMaps.ion_field_partial_allz[0]), Resolution, self.input_boxlength, self.ncells)
-
-        self.T21_smooth = z21_utilities.smooth_box(copy.copy(self.T21[0]), Resolution, self.input_boxlength, self.ncells)
+        if self.smooth_box:
+            Resolution = max(self.input_Resolution, self.input_boxlength/self.ncells)
+            self.xHI_smooth = z21_utilities.smooth_box(self.xHI, Resolution, self.input_boxlength, self.ncells)
+            self.T21_smooth = z21_utilities.smooth_box(self.T21[0], Resolution, self.input_boxlength, self.ncells)
     
 
     def generate_density_pb(self):
