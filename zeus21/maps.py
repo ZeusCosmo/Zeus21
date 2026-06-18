@@ -691,9 +691,9 @@ class T21_maps:
 
         Resolution = max(self.input_Resolution, self.input_boxlength/self.ncells)
 
-        self.xHI_smooth = z21_utilities.smooth_box(copy.copy(1. - self.ReioMaps.ion_field_partial_allz), Resolution, self.input_boxlength, self.ncells)
+        self.xHI_smooth = z21_utilities.smooth_box(copy.copy(1. - self.ReioMaps.ion_field_partial_allz[0]), Resolution, self.input_boxlength, self.ncells)
 
-        self.T21_smooth = z21_utilities.smooth_box(copy.copy(self.T21), Resolution, self.input_boxlength, self.ncells)
+        self.T21_smooth = z21_utilities.smooth_box(copy.copy(self.T21[0]), Resolution, self.input_boxlength, self.ncells)
     
 
     def generate_density_pb(self):
