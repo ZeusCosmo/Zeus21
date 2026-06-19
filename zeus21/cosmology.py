@@ -668,24 +668,46 @@ def dgrowth_dz(CosmoParams, z):
     return (growth(CosmoParams, z+dzlist)-growth(CosmoParams, z-dzlist))/(2.0*dzlist)
 
 
-def redshift_of_chi(CosmoParams, z):
+def redshift_of_chi(CosmoParams, chi):
     """
-    Comoving distance in the input cosmology. This function is not used inside the code but is provided for users
+    Redshift associated with the given comoving distance in the input cosmology.
+      This function is not used inside the code but is provided for users
+
+    Parameters
+    ----------
+    CosmoParams : CosmoParams
+        Cosmological parameters, used to compute the growth factor with CLASS.
+    chi : float
+        Comoving distance from today in Mpc
+    
+    Returns
+    -------
+    z : float
+        Redshift 
+    """
+
+    return CosmoParams.zfofRint(chi)
+
+
+def chi_of_redshift(CosmoParams, z):
+    """
+    Comoving distance associated with given redshift in the input cosmology.
+    This function is not used inside the code but is provided for users
 
     Parameters
     ----------
     CosmoParams : CosmoParams
         Cosmological parameters, used to compute the growth factor with CLASS.
     z : float
-        Redshift.
+        Redshift
     
     Returns
     -------
-    float
-        Comoving distance from today chi in Mpc"
+    chi : float
+        Comoving distance from today in Mpc 
     """
 
-    return CosmoParams.zfofRint(z)
+    return CosmoParams.chiofzint(z)
 
 
 def T021(CosmoParams, z):
