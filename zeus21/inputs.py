@@ -185,8 +185,6 @@ class Cosmo_Parameters:
         Interpolation for the redshift as a function of the comoving distance.
     chiofzint: interp1d
         Interpolation for the comoving distance as a function of the redshift.
-    Hofzint: interp1d
-        Interpolation for the Hubble rate as a function of the redshift.
     Tadiabaticint:
         Interpolation for the adiabatic temperature as a function of redshift.
     xetanhint: interp1d
@@ -276,7 +274,6 @@ class Cosmo_Parameters:
     _Hztab: Any = _field(init=False)
     zfofRint: interp1d = _field(init=False)
     chiofzint: interp1d = _field(init=False)
-    Hofzint: interp1d = _field(init=False)
 
     # Thermodynamics
     Tadiabaticint: interp1d = _field(init=False)
@@ -358,7 +355,6 @@ class Cosmo_Parameters:
         self._chitab, self._Hztab = self.ClassCosmo.z_of_r(self._ztabinchi) #chi and dchi/dz
         self.zfofRint = interp1d(self._chitab, self._ztabinchi)
         self.chiofzint = interp1d(self._ztabinchi,self._chitab)
-        self.Hofzint = interp1d(self._ztabinchi,self._Hztab)
 
         # thermodynamics
         _thermo = self.ClassCosmo.get_thermodynamics()
