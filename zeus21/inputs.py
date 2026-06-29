@@ -141,6 +141,10 @@ class Cosmo_Parameters:
         HMF_CHOICE: str
             Which HMF to use. Default is "ST".
             "ST" for the classic  Sheth-Tormen (f(nu)), "Yung" for the Tinker08 (f(sigma)) calibrated to Yung+23.
+        _Mhmin: float
+            Minimum halo mass in Msun to compute the HMF. Default is 1e5.
+        _Mhmax: float
+            Maximum halo mass in Msun to compute the HMF. Default is 1e14.
         
     Attributes
     ----------
@@ -215,7 +219,6 @@ class Cosmo_Parameters:
     """
     ### Non-default parameters
     UserParams: InitVar[User_Parameters]
-    
 
     ### Default parameters
     # 6 LCDM parameters
@@ -240,6 +243,9 @@ class Cosmo_Parameters:
     USE_RELATIVE_VELOCITIES: bool = False
     HMF_CHOICE: str = "ST"
 
+    # HMF mass integral
+    _Mhmin: float = 1e5 # minimum halo mass in Msun
+    _Mhmax: float = 1e14 # maximum halo mass in Msun
 
     ### Additional parameters and attributes set in the following
     # LCDM parameters

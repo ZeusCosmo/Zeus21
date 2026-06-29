@@ -437,8 +437,8 @@ class HMF_interpolator:
 
     def __init__(self, UserParams, CosmoParams):
 
-        self._Mhmin = 1e5 # minimum halo mass in Msun
-        self._Mhmax = 1e14 # maximum halo mass in Msun
+        self._Mhmin = CosmoParams._Mhmin # minimum halo mass in Msun
+        self._Mhmax = CosmoParams._Mhmax # maximum halo mass in Msun
         self._NMhs = np.floor(35*UserParams.precisionboost).astype(int) # number of halo mass points in the table, set by precisionboost
         self.Mhtab = np.logspace(np.log10(self._Mhmin),np.log10(self._Mhmax),self._NMhs) # halo mass table in Msun
         self.logtabMh = np.log(self.Mhtab) # log of halo mass table, used for interpolation since the HMF varies more smoothly in log(M)
