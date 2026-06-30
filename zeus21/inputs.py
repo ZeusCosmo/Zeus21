@@ -35,7 +35,9 @@ class User_Parameters:
     >>> zeus21.User_Parameters(precisionboost=0.5)
 
     Parameters can also be changed afterwards:
+
     >>> UserParams = zeus21.User_Parameters()
+    
     >>> UserParams.precisionboost = 0.5
 
     Parameters
