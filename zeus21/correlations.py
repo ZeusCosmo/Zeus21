@@ -1,19 +1,18 @@
 """
+Code to compute correlation functions from power spectra and functions of them. 
+Holds two classes: 
+    Correlations (with matter correlation functions smoothed over different R),
+    Power_Spectra (which will compute and hold the 21-cm power spectrum and power for derived quantities like xa, Tk, etc.).
 
-Code to compute correlation functions from power spectra and functions of them. Holds two classes: Correlations (with matter correlation functions smoothed over different R), and Power_Spectra (which will compute and hold the 21-cm power spectrum and power for derived quantities like xa, Tk, etc.)
-
-Author: Julian B. Muñoz
-UT Austin and Harvard CfA - January 2023
-
-Edited by Hector Afonso G. Cruz
-JHU - July 2024
-
-Edited by Sarah Libanore
-BGU - July 2025
-
-Edited by Hector Afonso G. Cruz & Julian Munoz
-UT Austin - May 2026
-NYU - June 2026
+Authors: zeus21 v2 collaboration - June 2026
+    Emily Bregou
+    Hector Afonso G. Cruz
+    Sarah Libanore
+    Julian B. Muñoz
+    Yonny Sklansky
+    Emilie Thélie
+    Alessandra Venditti
+arXiv:2302.08506, arXiv:2306.09403, arXiv:2407.18294, Sklansky et al. (in prep)
 """
 
 import numpy as np

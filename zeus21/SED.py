@@ -1,6 +1,16 @@
 """
 SEDs and Green's functions for first-galaxy emission models.
 
+Authors: zeus21 v2 collaboration - June 2026
+    Emily Bregou
+    Hector Afonso G. Cruz
+    Sarah Libanore
+    Julian B. Muñoz
+    Yonny Sklansky
+    Emilie Thélie
+    Alessandra Venditti
+arXiv:2302.08506, arXiv:2306.09403, arXiv:2407.18294, Sklansky et al. (in prep)
+
 Two families of functions:
 
   X-ray / Lyman-alpha SEDs (used in 21cm calculations)

@@ -1,18 +1,18 @@
 """
-Bulk of the Zeus21 calculation. Determines Lyman-alpha and X-ray fluxes, and evolves the cosmic-dawn IGM state (WF coupling and heating). From that we get the 21-cm global signal and the effective biases gammaR to determine the 21-cm power spectrum.
+Bulk of the Zeus21 calculation: 
+    - Determines Lyman-alpha and X-ray fluxes,
+    - Evolves the cosmic-dawn IGM state (WF coupling and heating),
+    - Computes the 21-cm global signal and the effective biases gammaR to determine the 21-cm power spectrum.
 
-Author: Julian B. Muñoz
-UT Austin and Harvard CfA - January 2023
-
-Edited by Hector Afonso G. Cruz
-JHU - July 2024
-
-Edited by Emily Bregou
-UT Austin - October 2025
-
-Edited by Sarah Libanore, Emilie Thelie, Hector Afonso G. Cruz
-UT Austin - April 2026 
-BGU - June 2026
+Authors: zeus21 v2 collaboration - June 2026
+    Emily Bregou
+    Hector Afonso G. Cruz
+    Sarah Libanore
+    Julian B. Muñoz
+    Yonny Sklansky
+    Emilie Thélie
+    Alessandra Venditti
+arXiv:2302.08506, arXiv:2306.09403, arXiv:2407.18294, Sklansky et al. (in prep)
 """
 
 from . import cosmology

@@ -1,18 +1,15 @@
 """
+Takes inputs and stores them in useful classes.
 
-Takes inputs and stores them in useful classes
-
-Author: Julian B. Muñoz
-UT Austin and Harvard CfA - January 2023
-
-Edited by Hector Afonso G. Cruz
-JHU - July 2024
-
-Edited by Emily Bregou
-UT Austin - March 2026
-
-Edited by Hector Afonso G. Cruz and Alessandra Venditti
-UT Austin and NYU/CCA - June 2026
+Authors: zeus21 v2 collaboration - June 2026
+    Emily Bregou
+    Hector Afonso G. Cruz
+    Sarah Libanore
+    Julian B. Muñoz
+    Yonny Sklansky
+    Emilie Thélie
+    Alessandra Venditti
+arXiv:2302.08506, arXiv:2306.09403, arXiv:2407.18294, Sklansky et al. (in prep)
 """
 
 from . import constants

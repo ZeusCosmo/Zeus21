@@ -1,9 +1,15 @@
 """
-Helper functions to be used across zeus21
+Helper functions to be used across zeus21.
 
-Authors: Yonatan Sklansky, Emilie Thelie
-UT Austin - February 2025
-
+Authors: zeus21 v2 collaboration - June 2026
+    Emily Bregou
+    Hector Afonso G. Cruz
+    Sarah Libanore
+    Julian B. Muñoz
+    Yonny Sklansky
+    Emilie Thélie
+    Alessandra Venditti
+arXiv:2302.08506, arXiv:2306.09403, arXiv:2407.18294, Sklansky et al. (in prep)
 """
 
 import numpy as np
