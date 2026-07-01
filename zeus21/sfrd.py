@@ -377,11 +377,11 @@ class SFRD_class:
 
         if vCB is not False:
             vcbFeedback = pow(1 + AstroParams.A_vcb * vCB / CosmoParams.sigma_vcb, AstroParams.beta_vcb)
-            Mmol *= vcbFeedback
+            Mmol = Mmol * vcbFeedback
 
         if J21LW_interp is not False:
             lwFeedback = 1 + AstroParams.A_LW*pow(J21LW_interp(z), AstroParams.beta_LW)
-            Mmol *= lwFeedback
+            Mmol = Mmol * lwFeedback
 
         # TODO: added option to turn off vCB/LW feedback entirely by putting the input to False, we may consider removing duplicating functions without feedback (Mmol_0, Mmol_vcb, Mmol_LW) + option to pass None and get the CosmoParams.vcb_avg and SFRD.J21LW_interp_conv_avg within the method instead, to avoid having to deal with this externally? E.g. in compute_pop_LFbias_binned(); note that CosmoParams is note needed unless we are computing the vcb feedback, so it could be made an optional parameter as well
         # TODO: refs for atomic/molecular-cooling mass calculation functions
