@@ -753,6 +753,8 @@ class reionization_global:
     def analytic_Q(self, CosmoParams, z): 
         """ 
         Analytically integrate the BMF to compute global xHII. 
+        Integrates down to some minimum sigma corresponding to the smallest relevant scale for bubbles.
+        Any smaller makes the integral discrepant with the BMF, and the linear barrier becomes a poor fit.
         
         Parameters 
         ---------- 

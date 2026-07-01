@@ -45,7 +45,6 @@ class ReioMapsConfig:
     COMPUTE_MASSWEIGHTED: bool = False
     lowres_massweighting: int = 1
     COMPUTE_PARTIAL_IONIZATIONS: bool = False
-    COMPUTE_PARTIAL_AND_MASSWEIGHTED: bool = False
     COMPUTE_ZREION: bool = False
 
 
@@ -113,8 +112,8 @@ class reionization_maps:
                  input_boxlength=300., ncells=300, seed=1234, r_precision=1., Rs=None, barrier=None, 
                  PRINT_TIMER=True, 
                  LOGNORMAL_DENSITY=False, COMPUTE_DENSITY_AT_ALLZ=False,
-                 COMPUTE_MASSWEIGHTED=False, lowres_massweighting=1, COMPUTE_PARTIAL_IONIZATIONS=False,
-                 COMPUTE_PARTIAL_AND_MASSWEIGHTED=False, COMPUTE_ZREION=False
+                 COMPUTE_MASSWEIGHTED=False, lowres_massweighting=1, COMPUTE_PARTIAL_IONIZATIONS=False, 
+                 COMPUTE_ZREION=False
                 ):
         #Measure time elapsed from start
         self._start_time = time.time()
@@ -150,7 +149,7 @@ class reionization_maps:
         self._has_density = COMPUTE_DENSITY_AT_ALLZ
         self.COMPUTE_MASSWEIGHTED = COMPUTE_MASSWEIGHTED
         self.COMPUTE_PARTIAL_IONIZATIONS = COMPUTE_PARTIAL_IONIZATIONS
-        self.COMPUTE_PARTIAL_AND_MASSWEIGHTED = COMPUTE_PARTIAL_AND_MASSWEIGHTED
+        self.COMPUTE_PARTIAL_AND_MASSWEIGHTED = False
         if self.COMPUTE_MASSWEIGHTED and self.COMPUTE_PARTIAL_IONIZATIONS:
             self.COMPUTE_PARTIAL_AND_MASSWEIGHTED = True
         self.COMPUTE_ZREION = COMPUTE_ZREION
