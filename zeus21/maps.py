@@ -455,7 +455,7 @@ class reionization_maps:
         iterator = trange(len(self.z)) if self.PRINT_TIMER else range(len(self.z))
         for i in iterator:
             #evaluate sample grid, and then input the actual density field into an interpolator.
-            tempgrid = CoeffStructure.prebarrier_xHII_int_grid(sample_d, self.z[i], r)
+            tempgrid = CoeffStructure.prebarrier_xHII_int_grid(sample_d, self.z[i], r, frame='eulerian')
             
             partialfield = np.interp(self.density.ravel(), sample_d, tempgrid).reshape(out_shape)
             

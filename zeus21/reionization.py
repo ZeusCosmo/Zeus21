@@ -192,13 +192,17 @@ class reionization_global:
         self._r_array, self._z_array = np.meshgrid(self.Rs, self.zlist, sparse=True, indexing='ij')
         self._rb_array, self._z_array = np.meshgrid(self.Rs_BMF, self.zlist, sparse=True, indexing='ij')
         
-        self.gamma = SFRD_Init.gamma_niondot_II_index2D ### TODO maybe not store them as attributes?
-        self.gamma2 = SFRD_Init.gamma2_niondot_II_index2D ### TODO maybe not store them as attributes?
+        self.gamma = {'eulerian': SFRD_Init.gamma_niondot_II_eulerian_index2D,
+                      'lagrangian': SFRD_Init.gamma_niondot_II_lagrangian_index2D} ### TODO maybe not store them as attributes?
+        self.gamma2 = {'eulerian': SFRD_Init.gamma2_niondot_II_eulerian_index2D,
+                       'lagrangian': SFRD_Init.gamma2_niondot_II_lagrangian_index2D} ### TODO maybe not store them as attributes?
         self.sigma =  HMFintclass.sigmaRintlog((np.log(self._r_array), self._z_array)).T
         
         self.zr = [self.zlist, np.log(self.Rs)]
-        self.gamma_int = RegularGridInterpolator(self.zr, self.gamma, bounds_error = False, fill_value = None)
-        self.gamma2_int = RegularGridInterpolator(self.zr, self.gamma2, bounds_error = False, fill_value = None)
+        self.gamma_int = {'eulerian': RegularGridInterpolator(self.zr, self.gamma['eulerian'], bounds_error = False, fill_value = None),
+                          'lagrangian': RegularGridInterpolator(self.zr, self.gamma['lagrangian'], bounds_error = False, fill_value = None)}
+        self.gamma2_int = {'eulerian': RegularGridInterpolator(self.zr, self.gamma2['eulerian'], bounds_error = False, fill_value = None),
+                           'lagrangian': RegularGridInterpolator(self.zr, self.gamma2['lagrangian'], bounds_error = False, fill_value = None)}
 
         self.sigma_BMF = HMFintclass.sigmaRintlog((np.log(self._rb_array), self._z_array)).T #might need to make a new interpolator for different R range
         self.zr_BMF = [self.zlist, np.log(self.Rs_BMF)]
@@ -216,10 +220,12 @@ class reionization_global:
         self.ion_frac_initial = np.copy(self.ion_frac)
 
         zr_mesh = np.meshgrid(np.arange(len(self.Rs)), np.arange(len(self.zlist)))
-        self.nion_norm = self.nion_normalization(zr_mesh[1], zr_mesh[0])
-        self.nion_norm_int = RegularGridInterpolator(self.zr, self.nion_norm, bounds_error = False, fill_value = None)
+        self.nion_norm = {'eulerian': self.nion_normalization(zr_mesh[1], zr_mesh[0], 'eulerian'),
+                          'lagrangian': self.nion_normalization(zr_mesh[1], zr_mesh[0], 'lagrangian')} 
+        self.nion_norm_int = {'eulerian': RegularGridInterpolator(self.zr, self.nion_norm['eulerian'], bounds_error = False, fill_value = None),
+                              'lagrangian': RegularGridInterpolator(self.zr, self.nion_norm['lagrangian'], bounds_error = False, fill_value = None)}
 
-        #using initial xHII to compute initial barrier
+        #using initial xHII to compute initial barrier. Compute BMF things in Lagrangian frame. Eulerian later for map making purposes.
         self.prebarrier_xHII = np.empty((len(self.ds_array), len(self.zlist), len(self.Rs)))
         self.barrier = self.compute_barrier(CosmoParams, AstroParams, self.ion_frac, self.zlist, self.Rs)
         self.barrier_initial = np.copy(self.barrier)
@@ -253,9 +259,16 @@ class reionization_global:
         #converge the BMF interatively
         if AstroParams.FLAG_BMF_converge:
             self.converge_BMF(CosmoParams, AstroParams, self.ion_frac)
+
+        #recompute lagrangian prebarrier_xHII after convergence
+        self.prebarrier_xHII_int = RegularGridInterpolator(self.dzr, self.prebarrier_xHII, bounds_error=False, fill_value=None)
+        
+        #compute Eulerian for partial ionization on the maps after convergence
+        self.prebarrier_xHII_eulerian = self.compute_prebarrier_xHII(CosmoParams, self.ion_frac, self.zlist, self.Rs, 'eulerian')
+        self.prebarrier_xHII_eulerian_int = RegularGridInterpolator(self.dzr, self.prebarrier_xHII_eulerian, bounds_error = False, fill_value = None)
         
 
-    def compute_prebarrier_xHII(self, CosmoParams, ion_frac, z, R):
+    def compute_prebarrier_xHII(self, CosmoParams, ion_frac, z, R, frame):
         """
         Computes the ionized fraction before solving for the barrier.
 
@@ -268,14 +281,16 @@ class reionization_global:
             Redshifts.
         R : array
             Smoothing radii in cMpc.
+        frame : str
+            Either 'lagrangian' or 'eulerian'.
 
         Returns
         -------
         prebarrier_xHII : array
             Ionized fraction evaluated over sample delta, z, and R before solving for the barrier.
         """
-        nion_values = self.nion_delta_r_int(CosmoParams, z, R)  #Shape (nd, nz, nR)
-        nrec_values = self.nrec(CosmoParams, ion_frac, z)[:, :, None]       #Shape (nd, nz) * (1, 1, nR)
+        nion_values = self.nion_delta_r_int(CosmoParams, z, R, frame)  #Shape (nd, nz, nR)
+        nrec_values = self.nrec(CosmoParams, ion_frac, z)[:, :, None]  #Shape (nd, nz) * (1, 1, nR)
         
         prebarrier_xHII = nion_values / (1 + nrec_values)
 
@@ -301,12 +316,13 @@ class reionization_global:
         barrier : array
             Density threshold for ionization as a function of z and R.
         """
+        frame = 'lagrangian'
         zarg = np.argsort(z)
         z = z[zarg]
         ion_frac = ion_frac[zarg]
     
         self.prebarrier_xHII = self.compute_prebarrier_xHII(
-            CosmoParams, ion_frac, z, R
+            CosmoParams, ion_frac, z, R, frame
         )
     
         total_values = np.log10(self.prebarrier_xHII + 1e-10)
@@ -354,7 +370,7 @@ class reionization_global:
     
         return barrier
 
-    def nion_normalization(self, z, R):
+    def nion_normalization(self, z, R, frame):
         """
         Computes the normalization factor for the niondot fit.
 
@@ -364,13 +380,15 @@ class reionization_global:
             Redshift-grid index or indices.
         R : int or array
             Radius-grid index or indices.
+        frame : str
+            Either 'lagrangian' or 'eulerian'.
 
         Returns
         -------
         nion_norm : float or array
             Normalization for niondot.
         """
-        return 1/np.sqrt(1-2*self.gamma2[z, R]*self.sigma[z, R]**2)*np.exp(self.gamma[z, R]**2 * self.sigma[z, R]**2 / (2-4*self.gamma2[z, R]*self.sigma[z, R]**2))
+        return 1/np.sqrt(1-2*self.gamma2[frame][z, R]*self.sigma[z, R]**2)*np.exp(self.gamma[frame][z, R]**2 * self.sigma[z, R]**2 / (2-4*self.gamma2[frame][z, R]*self.sigma[z, R]**2))
 
     def nrec(self, CosmoParams, ion_frac, z, d_array=None):
         """
@@ -417,7 +435,7 @@ class reionization_global:
         nrecs = nrecs[:, ::-1]  #reverse back to increasing z order
         return nrecs
     
-    def niondot_delta_r(self, CosmoParams, z, R, d_array=None):
+    def niondot_delta_r(self, CosmoParams, z, R, frame, d_array=None):
         """
         Compute niondot over an array of overdensities d_array for a given R.
 
@@ -429,6 +447,8 @@ class reionization_global:
             Redshifts
         R: float
             Radius value (cMpc)
+        frame: str
+            Either 'lagrangian' or 'eulerian'.
         d_array : array, optional 
             Sample delta values. 
             Default is None, in which case self.ds_array is used.
@@ -450,9 +470,9 @@ class reionization_global:
 
         d_array = d_array * CosmoParams.growthint(z) / CosmoParams.growthint(z1d[0])
     
-        gamma = self.gamma_zR_int(z1d[:, None], R1d[None, :])[None, :, :]
-        gamma2 = self.gamma2_zR_int(z1d[:, None], R1d[None, :])[None, :, :]
-        nion_norm = self.nion_norm_zR_int(z1d[:, None], R1d[None, :])[None, :, :]
+        gamma = self.gamma_zR_int(z1d[:, None], R1d[None, :], frame)[None, :, :]
+        gamma2 = self.gamma2_zR_int(z1d[:, None], R1d[None, :], frame)[None, :, :]
+        nion_norm = self.nion_norm_zR_int(z1d[:, None], R1d[None, :], frame)[None, :, :]
     
         #niondot fit with gammas and normalization
         exp_term = np.exp(gamma * d_array + gamma2 * d_array**2)
@@ -460,7 +480,7 @@ class reionization_global:
         
         return niondot
     
-    def nion_delta_r_int(self, CosmoParams, z, R, d_array=None):
+    def nion_delta_r_int(self, CosmoParams, z, R, frame, d_array=None):
         """
         Vectorized computation of nion over an array of overdensities d_array for a given R.
 
@@ -472,6 +492,8 @@ class reionization_global:
             Redshifts
         R: float
             Radius value (cMpc)
+        frame: str
+            Either 'lagrangian' or 'eulerian'.
         d_array : array, optional 
             Sample delta values. 
             Default is None, in which case self.ds_array is used.
@@ -491,7 +513,7 @@ class reionization_global:
         z_rev = z[::-1]
         Hz_rev = cosmology.Hubinvyr(CosmoParams, z_rev)
     
-        niondot_values = self.niondot_delta_r(CosmoParams, z, R, d_array)
+        niondot_values = self.niondot_delta_r(CosmoParams, z, R, frame, d_array)
     
         #cumulatively integrate over all time
         integrand = -1 / (1 + z_rev[None, :, None]) / Hz_rev[None, :, None] * niondot_values[:, ::-1]
@@ -843,20 +865,20 @@ class reionization_global:
     def barrierz_int(self, z, R):
         return self.interpz(z, R, self.barrier_int)
 
-    def gammaR_int(self, z, R):
-        return self.interpR(z, R, self.gamma_int)
-    def gammaz_int(self, z, R):
-        return self.interpz(z, R, self.gamma_int)
+    def gammaR_int(self, z, R, frame):
+        return self.interpR(z, R, self.gamma_int[frame])
+    def gammaz_int(self, z, R, frame):
+        return self.interpz(z, R, self.gamma_int[frame])
 
-    def gamma2R_int(self, z, R):
-        return self.interpR(z, R, self.gamma2_int)
-    def gamma2z_int(self, z, R):
-        return self.interpz(z, R, self.gamma2_int)
+    def gamma2R_int(self, z, R, frame):
+        return self.interpR(z, R, self.gamma2_int[frame])
+    def gamma2z_int(self, z, R, frame):
+        return self.interpz(z, R, self.gamma2_int[frame])
 
-    def nion_normR_int(self, z, R):
-        return self.interpR(z, R, self.nion_norm_int)
-    def nion_normz_int(self, z, R):
-        return self.interpz(z, R, self.nion_norm_int)
+    def nion_normR_int(self, z, R, frame):
+        return self.interpR(z, R, self.nion_norm_int[frame])
+    def nion_normz_int(self, z, R, frame):
+        return self.interpz(z, R, self.nion_norm_int[frame])
 
     def interp_zR(self, z, R, func):
         """
@@ -895,16 +917,16 @@ class reionization_global:
     def barrier_zR_int(self, z, R):
         return self.interp_zR(z, R, self.barrier_int)
     
-    def gamma_zR_int(self, z, R):
-        return self.interp_zR(z, R, self.gamma_int)
+    def gamma_zR_int(self, z, R, frame):
+        return self.interp_zR(z, R, self.gamma_int[frame])
     
-    def gamma2_zR_int(self, z, R):
-        return self.interp_zR(z, R, self.gamma2_int)
+    def gamma2_zR_int(self, z, R, frame):
+        return self.interp_zR(z, R, self.gamma2_int[frame])
     
-    def nion_norm_zR_int(self, z, R):
-        return self.interp_zR(z, R, self.nion_norm_int)
+    def nion_norm_zR_int(self, z, R, frame):
+        return self.interp_zR(z, R, self.nion_norm_int[frame])
 
-    def prebarrier_xHII_int_grid(self, d, z, R):
+    def prebarrier_xHII_int_grid(self, d, z, R, frame='eulerian'):
         """
         Evaluate prebarrier xHII on a density field d(x),
         at fixed redshift z and smoothing radius R.
@@ -917,6 +939,8 @@ class reionization_global:
             Redshift.
         R: float
             Smoothing radius (cMpc).
+        frame: str
+            Either 'lagrangian' or 'eulerian'.
 
         Output
         ----------
@@ -931,7 +955,11 @@ class reionization_global:
 
         #stack into points (..., 3) where last axis is (delta, z, logR)
         points = np.stack([d, z_arr, logr_arr], axis=-1)
-
-        values = self.prebarrier_xHII_int(points)
+        if frame == 'lagrangian':
+            values = self.prebarrier_xHII_int(points)
+        elif frame == 'eulerian':
+            values = self.prebarrier_xHII_eulerian_int(points)
+        else:
+            raise ValueError(f"Invalid frame: {frame}. Must be 'lagrangian' or 'eulerian'.")
 
         return values

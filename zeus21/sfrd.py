@@ -920,7 +920,7 @@ class SFRD_class:
         return fesc
     
 
-    def compute_sigmaR_nu(self, CosmoParams, HMFinterp, z_array, R_array, Mh_array, dorv_array, dorv):
+    def compute_sigmaR_nu(self, CosmoParams, HMFinterp, z_array, R_array, Mh_array, dorv_array, dorv, frame='eulerian'):
         """
         Compute the local mass function conditioned over the environment
         
@@ -938,11 +938,13 @@ class SFRD_class:
             Input values of either the denisty or velocity field
         dorv : str
             Compute the output wrt the density field ("delta") or the velocity field ("vel")
+        frame : str
+            Choose whether to compute the local HMF in Eulerian ("eulerian") or Lagrangian ("lagrangian") space
         
         Returns
         ----------
         HMF_corr : array 
-            Local HMF in Eulerian space
+            Local HMF in Eulerian or Lagrangian space
         mArray : array 
             Halo masses, dimension (z,R,Mh,delta or v)
         zGreaterArray : array
@@ -986,11 +988,20 @@ class SFRD_class:
         
         if not CosmoParams.Flag_emulate_21cmfast:
             # EPS_HMF corrected with (1+delta) for Eulerian space
-            HMF_corr = (nu/nu0) * (sigmaM/modSigma)**2.0 * np.exp(-CosmoParams.a_corr_EPS * (nu**2-nu0**2)/2.0 ) * (1.0 + deltaArray)
+            hmf_lagrangian = (nu/nu0) * (sigmaM/modSigma)**2.0 * np.exp(-CosmoParams.a_corr_EPS * (nu**2-nu0**2)/2.0 )
 
         else: 
             # as 21cmFAST, use PS HMF, integrate and normalize at the end
-            HMF_corr = cosmology.PS_HMF_unnorm(CosmoParams, Mh_array.reshape(len(Mh_array),1),nu,dlogSdMcurr) * (1.0 + deltaArray)
+            hmf_lagrangian = cosmology.PS_HMF_unnorm(CosmoParams, Mh_array.reshape(len(Mh_array),1),nu,dlogSdMcurr)
+
+        if frame == "eulerian":
+            HMF_corr = hmf_lagrangian * (1.0 + deltaArray)
+        elif frame == "lagrangian":
+            HMF_corr = hmf_lagrangian
+        else:
+            raise ValueError(
+                f"frame must be 'eulerian' or 'lagrangian'; got {frame!r}"
+            )
 
         if dorv == "delta":
             out = deltaArray
@@ -1030,42 +1041,57 @@ class SFRD_class:
 
         deltatab_norm = np.linspace(-Nsigmad,Nsigmad,Nds)
         
-        HMF_corr, mArray, zGreaterArray, deltaArray = self.compute_sigmaR_nu(CosmoParams, HMFinterp, z_array, R_array, Mh_array, deltatab_norm, "delta") # compute local HMF 
+        HMF_corr_lagrangian, mArray, zGreaterArray, deltaArray = self.compute_sigmaR_nu(CosmoParams, HMFinterp, z_array, R_array, Mh_array, deltatab_norm, "delta", frame='lagrangian') # compute local HMF 
+        HMF_corr_eulerian = HMF_corr_lagrangian * (1.0 + deltaArray)
 
         # PS_HMF~ delta/sigma^3 *exp(-delta^2/2sigma^2) * consts(of M including dsigma^2/dm)
         if not CosmoParams.Flag_emulate_21cmfast:
 
             # Normalized PS(d)/<PS(d)> at each mass
-            integrand_II = HMF_corr * self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zGreaterArray, pop=2)
+            source_II = self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zGreaterArray, pop=2)
+            integrand_II_eulerian = HMF_corr_eulerian * source_II
+            integrand_II_lagrangian = HMF_corr_lagrangian * source_II
             if AstroParams.USE_POPIII:
-                integrand_III = HMF_corr * self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zGreaterArray, pop=3, vCB=CosmoParams.vcb_avg,J21LW_interp=self.J21LW_interp_conv_avg)
+                source_III = self.SFRD_integrand(CosmoParams, AstroParams, HMFinterp, mArray, zGreaterArray, pop=3, vCB=CosmoParams.vcb_avg,J21LW_interp=self.J21LW_interp_conv_avg)
+                integrand_III_eulerian = HMF_corr_eulerian * source_III
+                integrand_III_lagrangian = HMF_corr_lagrangian * source_III
             
         else: 
             # 21cmFAST uses PS HMF, integrates and normalizes as SFRD(d)/<SFRD(d)>
-            integrand_II = HMF_corr * self.SFR(CosmoParams, AstroParams, HMFinterp, mArray, zGreaterArray, pop=2) * mArray
+            source_II = self.SFR(CosmoParams, AstroParams, HMFinterp, mArray, zGreaterArray, pop=2) * mArray
+            integrand_II_eulerian = HMF_corr_eulerian * source_II
+            integrand_II_lagrangian = HMF_corr_lagrangian * source_II
             if AstroParams.USE_POPIII:
-                integrand_III = HMF_corr * self.SFR(CosmoParams, AstroParams, HMFinterp, mArray, zGreaterArray, pop=3,  vCB=CosmoParams.vcb_avg,J21LW_interp=self.J21LW_interp_conv_avg) * mArray
+                source_III = self.SFR(CosmoParams, AstroParams, HMFinterp, mArray, zGreaterArray, pop=3, vCB=CosmoParams.vcb_avg,J21LW_interp=self.J21LW_interp_conv_avg) * mArray
+                integrand_III_eulerian = HMF_corr_eulerian * source_III
+                integrand_III_lagrangian = HMF_corr_lagrangian * source_III
 
         # Local popII SFRD
-        SFRD_II_dR = np.trapezoid(integrand_II, HMFinterp.logtabMh, axis = 2)
+        SFRD_II_dR = np.trapezoid(integrand_II_eulerian, HMFinterp.logtabMh, axis = 2) #only need eulerian
 
         # Local popII niondot
-        niondot_II_dR = np.trapezoid(integrand_II*fesctab_II[None, None, :, None], HMFinterp.logtabMh, axis = 2)
+        niondot_II_dR_eulerian = np.trapezoid(integrand_II_eulerian*fesctab_II[None, None, :, None], HMFinterp.logtabMh, axis = 2)
+        niondot_II_dR_lagrangian = np.trapezoid(integrand_II_lagrangian*fesctab_II[None, None, :, None], HMFinterp.logtabMh, axis = 2)
 
         if AstroParams.USE_POPIII:
             # Local popIII SFRD            
-            SFRD_III_dR = np.trapezoid(integrand_III, HMFinterp.logtabMh, axis = 2)
+            SFRD_III_dR = np.trapezoid(integrand_III_eulerian, HMFinterp.logtabMh, axis = 2)
         else:
             SFRD_III_dR = np.zeros_like(SFRD_II_dR)
 
         # compute all required gammas 
         self.gamma_II_index2D = self.compute_numerical_der_gamma(SFRD_II_dR, deltaArray, 1) 
-        
         self.gamma2_II_index2D = self.compute_numerical_der_gamma(SFRD_II_dR, deltaArray, 2) 
         
-        self.gamma_niondot_II_index2D = self.compute_numerical_der_gamma(niondot_II_dR, deltaArray, 1)
+        self.gamma_niondot_II_eulerian_index2D = self.compute_numerical_der_gamma(niondot_II_dR_eulerian, deltaArray, 1)
+        self.gamma2_niondot_II_eulerian_index2D = self.compute_numerical_der_gamma(niondot_II_dR_eulerian, deltaArray, 2)
 
-        self.gamma2_niondot_II_index2D = self.compute_numerical_der_gamma(niondot_II_dR, deltaArray, 2)
+        self.gamma_niondot_II_lagrangian_index2D = self.compute_numerical_der_gamma(niondot_II_dR_lagrangian, deltaArray, 1)
+        self.gamma2_niondot_II_lagrangian_index2D = self.compute_numerical_der_gamma(niondot_II_dR_lagrangian, deltaArray, 2)
+
+        #make original unspecified names backwards-compatible
+        self.gamma_niondot_II_index2D = (self.gamma_niondot_II_eulerian_index2D)
+        self.gamma2_niondot_II_index2D = (self.gamma2_niondot_II_eulerian_index2D)
 
         if AstroParams.USE_POPIII:
             self.gamma_III_index2D = self.compute_numerical_der_gamma(SFRD_III_dR, deltaArray, 1)
