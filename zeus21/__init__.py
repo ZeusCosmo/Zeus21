@@ -11,6 +11,7 @@ from .sfrd import *
 from .T21coefficients import * 
 from .wrappers import *
 from .z21_utilities import *
+from .kSZ import *
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning) #to silence unnecessary warning in mcfit
